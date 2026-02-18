@@ -3,8 +3,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Form, Input, Select, Button, Typography, Alert, Steps, Divider } from 'antd';
 import {
-    MailOutlined, LockOutlined, UserOutlined, RocketOutlined, HomeOutlined,
-    BankOutlined, EnvironmentOutlined, ArrowLeftOutlined, ArrowRightOutlined
+    MailOutlined, LockOutlined, UserOutlined, BankOutlined, HomeOutlined,
+    EnvironmentOutlined, ArrowLeftOutlined, ArrowRightOutlined
 } from '@ant-design/icons';
 import LocationPickerMap from '../components/LocationPickerMap';
 
@@ -75,7 +75,7 @@ export default function Signup() {
                 className="auth-hero"
                 style={{
                     flex: 1,
-                    background: 'linear-gradient(135deg, #001529 0%, #003a70 100%)',
+                    background: 'linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%)',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
@@ -85,12 +85,12 @@ export default function Signup() {
                     overflow: 'hidden',
                 }}
             >
-                <div style={{ position: 'absolute', top: -80, right: -80, width: 320, height: 320, borderRadius: '50%', background: 'rgba(24,144,255,0.08)' }} />
-                <div style={{ position: 'absolute', bottom: -60, left: -60, width: 240, height: 240, borderRadius: '50%', background: 'rgba(24,144,255,0.06)' }} />
+                <div style={{ position: 'absolute', top: -80, right: -80, width: 320, height: 320, borderRadius: '50%', background: 'rgba(255,255,255,0.1)' }} />
+                <div style={{ position: 'absolute', bottom: -60, left: -60, width: 240, height: 240, borderRadius: '50%', background: 'rgba(255,255,255,0.08)' }} />
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, position: 'relative', zIndex: 1 }}>
-                    <div style={{ width: 40, height: 40, background: '#1890ff', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <RocketOutlined style={{ fontSize: 22, color: '#fff' }} />
+                    <div style={{ width: 40, height: 40, background: '#3B82F6', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <BankOutlined style={{ fontSize: 22, color: '#fff' }} />
                     </div>
                     <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: 0.5 }}>Enterprise Logistics</span>
                 </div>
@@ -99,16 +99,16 @@ export default function Signup() {
                     <h1 style={{ fontSize: 40, lineHeight: 1.2, fontWeight: 700, marginBottom: 20, color: '#fff' }}>
                         Start shipping smarter today.
                     </h1>
-                    <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.65)', lineHeight: 1.6 }}>
+                    <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.85)', lineHeight: 1.6 }}>
                         Create your MSME partner account and get instant access to our logistics platform. Manage shipments, track deliveries, and grow your business.
                     </p>
                     <div style={{ display: 'flex', gap: 24, marginTop: 32 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#52c41a' }} />
+                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22C55E' }} />
                             <span style={{ fontSize: 14, opacity: 0.8 }}>Free to Get Started</span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#52c41a' }} />
+                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22C55E' }} />
                             <span style={{ fontSize: 14, opacity: 0.8 }}>No Credit Card Required</span>
                         </div>
                     </div>

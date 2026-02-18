@@ -58,7 +58,7 @@ async def seed_data():
             {"email": "msme@example.com", "password": "password123", "role": UserRole.MSME, "name": "MSME Business User"},
             {"email": "driver@example.com", "password": "password123", "role": UserRole.DRIVER, "name": "Driver Raj", "license": "DL-KA01-2023001", "rating": 4.8, "phone": "9876543210"},
             {"email": "driver2@example.com", "password": "password123", "role": UserRole.DRIVER, "name": "Driver Suresh", "license": "DL-KA04-2023999", "rating": 3.9, "phone": "9123456789"},
-            {"email": "fleet@example.com", "password": "password123", "role": UserRole.FLEET_MANAGER, "name": "Fleet Manager Priya"},
+            {"email": "driver2@example.com", "password": "password123", "role": UserRole.DRIVER, "name": "Driver Suresh", "license": "DL-KA04-2023999", "rating": 3.9, "phone": "9123456789"},
         ]
         
         for u in users_to_create:
@@ -105,7 +105,7 @@ async def seed_new_roles(db):
         {"email": "msme@example.com", "password": "password123", "role": UserRole.MSME, "name": "MSME Business User"},
         {"email": "driver@example.com", "password": "password123", "role": UserRole.DRIVER, "name": "Driver Raj"},
         {"email": "driver2@example.com", "password": "password123", "role": UserRole.DRIVER, "name": "Driver Suresh"},
-        {"email": "fleet@example.com", "password": "password123", "role": UserRole.FLEET_MANAGER, "name": "Fleet Manager Priya"},
+        {"email": "driver2@example.com", "password": "password123", "role": UserRole.DRIVER, "name": "Driver Suresh"},
     ]
     
     for u in new_users:

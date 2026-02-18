@@ -55,7 +55,7 @@ export default function OperationsMonitor() {
         },
         {
             title: 'Status', dataIndex: 'status', key: 'status',
-            render: s => <Tag color={STATUS_COLORS[s]}>{s.replace(/_/g, ' ')}</Tag>
+            render: s => <span style={{ fontWeight: 500 }}>{s.replace(/_/g, ' ')}</span>
         },
         { title: 'Pickup', dataIndex: 'pickup_address', key: 'pickup', ellipsis: true },
         { title: 'Drop', dataIndex: 'drop_address', key: 'drop', ellipsis: true },
@@ -92,7 +92,7 @@ export default function OperationsMonitor() {
             {/* Exception Panel */}
             {delayedShipments.length > 0 && (
                 <Card
-                    title={<Space><ClockCircleOutlined style={{ color: '#ff4d4f' }} /> <Text type="danger" strong>Delayed Shipments ({delayedShipments.length})</Text></Space>}
+                    title={<Space><ClockCircleOutlined style={{ color: '#EF4444' }} /> <Text type="danger" strong>Delayed Shipments ({delayedShipments.length})</Text></Space>}
                     style={{ marginBottom: 24, border: '1px solid #ffccc7', background: '#fff1f0' }}
                     bodyStyle={{ padding: 12 }}
                 >
@@ -114,17 +114,17 @@ export default function OperationsMonitor() {
                         <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
                             <Col xs={12} sm={6}>
                                 <Card bordered={false} style={{ background: '#f0f5ff' }}>
-                                    <Statistic title="Active Shipments" value={activeShipments.length} prefix={<SendOutlined />} valueStyle={{ color: '#1890ff' }} />
+                                    <Statistic title="Active Shipments" value={activeShipments.length} prefix={<SendOutlined />} />
                                 </Card>
                             </Col>
                             <Col xs={12} sm={6}>
                                 <Card bordered={false} style={{ background: '#f6ffed' }}>
-                                    <Statistic title="Vehicles Available" value={vehicleStatus.available || 0} prefix={<CarOutlined />} valueStyle={{ color: '#52c41a' }} />
+                                    <Statistic title="Vehicles Available" value={vehicleStatus.available || 0} prefix={<CarOutlined />} />
                                 </Card>
                             </Col>
                             <Col xs={12} sm={6}>
                                 <Card bordered={false} style={{ background: '#e6f7ff' }}>
-                                    <Statistic title="Vehicles On Trip" value={vehicleStatus.on_trip || 0} prefix={<CarOutlined />} valueStyle={{ color: '#1890ff' }} />
+                                    <Statistic title="Vehicles On Trip" value={vehicleStatus.on_trip || 0} prefix={<CarOutlined />} />
                                 </Card>
                             </Col>
                             <Col xs={12} sm={6}>
@@ -140,7 +140,7 @@ export default function OperationsMonitor() {
                                 columns={shipmentColumns}
                                 dataSource={activeShipments}
                                 rowKey="id"
-                                pagination={{ pageSize: 5 }}
+                                pagination={false}
                                 size="middle"
                                 scroll={{ x: 800 }}
                                 locale={{ emptyText: 'No active shipments' }}
@@ -180,7 +180,7 @@ export default function OperationsMonitor() {
                             columns={auditColumns}
                             dataSource={auditLogs}
                             rowKey="id"
-                            pagination={{ pageSize: 10 }}
+                            pagination={false}
                             size="small"
                         />
                     </Tabs.TabPane>

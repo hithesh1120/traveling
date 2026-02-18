@@ -14,7 +14,7 @@ const AdvancedFilterBar = ({ onFilter, statusOptions, initialValues }) => {
     const [drivers, setDrivers] = useState([]);
     const [vehicles, setVehicles] = useState([]);
 
-    const isAdminOrFleet = user?.role === 'SUPER_ADMIN' || user?.role === 'FLEET_MANAGER';
+    const isAdminOrFleet = user?.role === 'SUPER_ADMIN';
 
     useEffect(() => {
         if (isAdminOrFleet && token) {
@@ -54,7 +54,13 @@ const AdvancedFilterBar = ({ onFilter, statusOptions, initialValues }) => {
             >
                 <Space wrap size={[8, 16]}>
                     <Form.Item name="q" noStyle>
-                        <Input placeholder="Search PO, Tracking, Address..." prefix={<SearchOutlined />} style={{ width: 220 }} allowClear />
+                        <Input
+                            className="global-search-input"
+                            placeholder="Search Shipments..."
+                            prefix={<SearchOutlined style={{ color: '#ff4d4f' }} />}
+                            style={{ width: 280, borderRadius: '50px' }}
+                            allowClear
+                        />
                     </Form.Item>
 
                     <Form.Item name="status" noStyle>
@@ -69,7 +75,10 @@ const AdvancedFilterBar = ({ onFilter, statusOptions, initialValues }) => {
                     </Form.Item>
 
                     <Form.Item name="dateRange" noStyle>
-                        <RangePicker style={{ width: 240 }} />
+                        <RangePicker
+                            style={{ width: 260, borderRadius: '50px' }}
+                            format="YYYY-MM-DD"
+                        />
                     </Form.Item>
 
                     {isAdminOrFleet && (

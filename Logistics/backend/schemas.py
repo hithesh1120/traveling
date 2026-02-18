@@ -161,6 +161,37 @@ class WarehouseReceiveItem(BaseModel):
 class WarehouseReceiveRequest(BaseModel):
     items: List[WarehouseReceiveItem]
 
+# --- Analytics Schemas ---
+
+class AnalyticsFleetResponse(BaseModel):
+    total_vehicles: int
+    available: int
+    on_trip: int
+    maintenance: int
+    utilization_rate: float
+
+class AnalyticsChartData(BaseModel):
+    date: str
+    count: int
+
+class AnalyticsShipmentResponse(BaseModel):
+    total: int
+    pending: int
+    active: int
+    delivered: int
+    confirmed: int
+    today: int
+    completion_rate: float
+    chart_data: List[AnalyticsChartData]
+
+class AnalyticsDriverResponse(BaseModel):
+    driver_id: int
+    name: str
+    email: str
+    total_shipments: int
+    completed: int
+    active: int
+
 class AuditLogResponse(BaseModel):
     id: int
     action: str
@@ -323,6 +354,8 @@ class ShipmentResponse(BaseModel):
     confirmed_at: Optional[datetime.datetime] = None
     items: List[ShipmentItemResponse] = []
     timeline: List[ShipmentTimelineResponse] = []
+    assigned_vehicle: Optional[VehicleResponse] = None
+    assigned_driver: Optional[UserResponse] = None
 
     class Config:
         from_attributes = True
@@ -375,6 +408,7 @@ class SavedAddressCreate(BaseModel):
     address: str
     lat: Optional[float] = None
     lng: Optional[float] = None
+    is_global: bool = False
 
 class SavedAddressResponse(SavedAddressCreate):
     id: int

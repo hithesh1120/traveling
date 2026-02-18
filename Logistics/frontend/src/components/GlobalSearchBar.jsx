@@ -1,13 +1,33 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Input, AutoComplete, Tag, Avatar, Spin, Typography } from 'antd';
-import { SearchOutlined, UserOutlined, CarOutlined, CodeSandboxOutlined, HistoryOutlined } from '@ant-design/icons';
+import {
+    SearchOutlined,
+    UserOutlined,
+    CarOutlined,
+    CodeSandboxOutlined,
+    HistoryOutlined,
+    RocketOutlined,
+    HomeOutlined,
+    ContainerOutlined,
+    AppstoreOutlined,
+    CalendarOutlined,
+    DeploymentUnitOutlined
+} from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 
 const { Text } = Typography;
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+const SUGGESTIONS = [
+    { label: 'Logistics', icon: <DeploymentUnitOutlined />, color: '#1890ff' },
+    { label: 'Deliveries', icon: <RocketOutlined />, color: '#ff4d4f' },
+    { label: 'Warehouses', icon: <HomeOutlined />, color: '#52c41a' },
+    { label: 'Cargo', icon: <ContainerOutlined />, color: '#fa8c16' },
+    { label: 'Inventory', icon: <AppstoreOutlined />, color: '#722ed1' },
+    { label: 'Planning', icon: <CalendarOutlined />, color: '#eb2f96' },
+];
 
 const GlobalSearchBar = () => {
     const [options, setOptions] = useState([]);
@@ -16,11 +36,25 @@ const GlobalSearchBar = () => {
     const navigate = useNavigate();
     const debounceRef = useRef(null);
 
+    // Typewriter / Rotating Placeholder State
+    const [placeholder, setPlaceholder] = useState('Search for Shipments...');
+    const [placeholderIndex, setPlaceholderIndex] = useState(0);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setPlaceholderIndex((prev) => (prev + 1) % SUGGESTIONS.length);
+        }, 3000);
+        return () => clearInterval(interval);
+    }, []);
+
+    useEffect(() => {
+        setPlaceholder(`Search for ${SUGGESTIONS[placeholderIndex].label}...`);
+    }, [placeholderIndex]);
+
     const getPrefix = () => {
         switch (user?.role) {
             case 'SUPER_ADMIN': return '/admin';
             case 'MSME': return '/msme';
-            case 'FLEET_MANAGER': return '/fleet';
             case 'DRIVER': return '/driver';
             default: return '/';
         }
@@ -33,6 +67,7 @@ const GlobalSearchBar = () => {
     };
 
     const addToHistory = (item, type, value) => {
+        if (!item || !type) return; // Guard for suggestions
         const recent = getRecent();
         const newItem = { item, type, value, timestamp: Date.now() };
         // Determine label string for storage
@@ -68,9 +103,9 @@ const GlobalSearchBar = () => {
     const renderOption = (type, item, searchTerm) => {
         if (type === 'shipment') {
             return (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0' }}>
                     <span>
-                        <CodeSandboxOutlined style={{ marginRight: 8, color: '#1890ff' }} />
+                        <CodeSandboxOutlined style={{ marginRight: 8, color: '#ff4d4f' }} />
                         <Text strong>{getHighlightedText(item.tracking_number, searchTerm)}</Text>
                         <Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>
                             {item.pickup_address?.split(',')[0]} → {item.drop_address?.split(',')[0]}
@@ -82,7 +117,7 @@ const GlobalSearchBar = () => {
         }
         if (type === 'driver') {
             return (
-                <div>
+                <div style={{ padding: '4px 0' }}>
                     <UserOutlined style={{ marginRight: 8, color: '#fa8c16' }} />
                     {getHighlightedText(item.name || item.email, searchTerm)}
                     {item.phone && <Text type="secondary" style={{ marginLeft: 8 }}>📞 {getHighlightedText(item.phone, searchTerm)}</Text>}
@@ -91,7 +126,7 @@ const GlobalSearchBar = () => {
         }
         if (type === 'vehicle') {
             return (
-                <div>
+                <div style={{ padding: '4px 0' }}>
                     <CarOutlined style={{ marginRight: 8, color: '#52c41a' }} />
                     {getHighlightedText(item.plate_number, searchTerm)} ({item.name})
                 </div>
@@ -103,7 +138,7 @@ const GlobalSearchBar = () => {
     const handleSearch = (value) => {
         if (debounceRef.current) clearTimeout(debounceRef.current);
         if (!value) {
-            showRecent();
+            showRecentOrSuggestions();
             return;
         }
         if (value.length < 2) {
@@ -124,7 +159,7 @@ const GlobalSearchBar = () => {
 
                 if (shipments?.length > 0) {
                     newOptions.push({
-                        label: <Text strong style={{ color: '#1890ff' }}>Shipments</Text>,
+                        label: <Text strong style={{ color: '#ff4d4f' }}>Shipments</Text>,
                         options: shipments.map(s => ({
                             value: `shipment-${s.id}`,
                             type: 'shipment',
@@ -167,29 +202,52 @@ const GlobalSearchBar = () => {
         }, 400);
     };
 
-    const showRecent = () => {
+    const showRecentOrSuggestions = () => {
         const recent = getRecent();
+        const suggestionOptions = {
+            label: <Text strong style={{ color: '#8c8c8c' }}>Suggestions</Text>,
+            options: SUGGESTIONS.map(s => ({
+                value: s.label,
+                type: 'suggestion',
+                label: (
+                    <div style={{ display: 'flex', alignItems: 'center', color: '#595959' }}>
+                        <span style={{ marginRight: 8, color: s.color, fontSize: 16 }}>{s.icon}</span>
+                        {s.label}
+                    </div>
+                )
+            }))
+        };
+
         if (recent.length > 0) {
-            setOptions([{
-                label: <Text strong style={{ color: '#8c8c8c' }}>Recent</Text>,
-                options: recent.map(r => ({
-                    value: r.value,
-                    type: r.type,
-                    item: r.item,
-                    label: (
-                        <div style={{ color: '#8c8c8c' }}>
-                            <HistoryOutlined style={{ marginRight: 8 }} />
-                            {r.labelStr}
-                        </div>
-                    )
-                }))
-            }]);
+            setOptions([
+                {
+                    label: <Text strong style={{ color: '#8c8c8c' }}>Recent</Text>,
+                    options: recent.map(r => ({
+                        value: r.value,
+                        type: r.type,
+                        item: r.item,
+                        label: (
+                            <div style={{ color: '#8c8c8c' }}>
+                                <HistoryOutlined style={{ marginRight: 8 }} />
+                                {r.labelStr}
+                            </div>
+                        )
+                    }))
+                },
+                suggestionOptions
+            ]);
         } else {
-            setOptions([]);
+            setOptions([suggestionOptions]);
         }
     };
 
     const onSelect = (value, option) => {
+        if (option.type === 'suggestion') {
+            // Just fill the bar or do a broad search, for now fill bar
+            // handleSearch(value); // This would trigger search
+            return;
+        }
+
         addToHistory(option.item, option.type, value);
 
         const prefix = getPrefix();
@@ -197,27 +255,30 @@ const GlobalSearchBar = () => {
             navigate(`${prefix}/shipments/${option.item.id}`);
         } else if (option.type === 'driver') {
             if (user.role === 'SUPER_ADMIN') navigate(`/admin/users`);
-            else if (user.role === 'FLEET_MANAGER') navigate(`/fleet/analytics`);
         } else if (option.type === 'vehicle') {
             navigate(`${prefix}/vehicles`);
         }
     };
 
     return (
-        <AutoComplete
-            dropdownMatchSelectWidth={500}
-            style={{ width: 400 }}
-            options={options}
-            onSelect={onSelect}
-            onSearch={handleSearch}
-            onFocus={showRecent}
-        >
-            <Input.Search
-                placeholder="Search shipments, phone, drivers..."
-                loading={loading}
-                allowClear
-            />
-        </AutoComplete>
+        <div style={{ position: 'relative' }}>
+            <AutoComplete
+                dropdownMatchSelectWidth={500}
+                style={{ width: 450 }}
+                options={options}
+                onSelect={onSelect}
+                onSearch={handleSearch}
+                onFocus={showRecentOrSuggestions}
+            >
+                <Input
+                    className="global-search-input"
+                    placeholder={placeholder}
+                    allowClear
+                    size="large"
+                    prefix={<SearchOutlined style={{ color: '#ff4d4f', fontSize: 20 }} />}
+                />
+            </AutoComplete>
+        </div>
     );
 };
 
