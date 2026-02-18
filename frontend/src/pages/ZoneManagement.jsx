@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Table, Card, Tag, Button, Modal, Form, Input, Select, Typography, Space, message, ColorPicker } from 'antd';
-import { PlusOutlined, EnvironmentOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Table, Card, Tag, Button, Modal, Form, Input, Select, Typography, Space, message, ColorPicker, Avatar } from 'antd';
+import { PlusOutlined, EnvironmentOutlined, EditOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
 import axios from 'axios';
 
 const { Title, Text } = Typography;
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-const STATUS_COLORS = { ACTIVE: 'green', INACTIVE: 'default', MAINTENANCE: 'orange' };
+const STATUS_COLORS = { ACTIVE: 'success', INACTIVE: 'default', MAINTENANCE: 'warning' };
 
 export default function ZoneManagement() {
     const { token } = useAuth();
@@ -55,6 +55,7 @@ export default function ZoneManagement() {
         Modal.confirm({
             title: 'Delete Zone?',
             content: 'This will remove the zone. This cannot be undone.',
+            okType: 'danger',
             onOk: async () => {
                 try {
                     await axios.delete(`${API}/zones/${id}`, { headers });
@@ -81,12 +82,16 @@ export default function ZoneManagement() {
 
     const columns = [
         {
-            title: 'Name', dataIndex: 'name', key: 'name',
+            title: 'Zone Name', dataIndex: 'name', key: 'name',
             render: (t, r) => (
-                <Space>
-                    <div style={{ width: 12, height: 12, borderRadius: 3, background: r.color || '#1890ff' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <Avatar
+                        shape="square"
+                        icon={<EnvironmentOutlined />}
+                        style={{ backgroundColor: r.color + '22', color: r.color, border: `1px solid ${r.color}` }}
+                    />
                     <Text strong>{t}</Text>
-                </Space>
+                </div>
             ),
         },
         { title: 'Description', dataIndex: 'description', key: 'desc', ellipsis: true },
@@ -94,8 +99,12 @@ export default function ZoneManagement() {
             title: 'Status', dataIndex: 'status', key: 'status',
             render: s => <Tag color={STATUS_COLORS[s]}>{s}</Tag>
         },
-        { title: 'Max Capacity', dataIndex: 'max_capacity', key: 'cap', render: v => v || '∞' },
-        { title: 'Vehicles', key: 'vcount', render: () => '-' },
+        {
+            title: 'Max Capacity',
+            dataIndex: 'max_capacity',
+            key: 'cap',
+            render: v => v ? <Tag>{v} Vehicles</Tag> : <Text type="secondary">Unlimited</Text>
+        },
         {
             title: '', key: 'actions', width: 100,
             render: (_, r) => (
@@ -109,18 +118,33 @@ export default function ZoneManagement() {
 
     return (
         <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                <Title level={3} style={{ margin: 0 }}>Zone Management</Title>
-                <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>Add Zone</Button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
+                <div>
+                    <Title level={2} style={{ margin: 0, fontWeight: 700, color: '#0F172A' }}>Zone Management</Title>
+                    <Text type="secondary" style={{ fontSize: 16 }}>Manage operational zones and capacities</Text>
+                </div>
+                <Space>
+                    <Button icon={<ReloadOutlined />} onClick={fetchZones} size="large">Refresh</Button>
+                    <Button type="primary" icon={<PlusOutlined />} onClick={openCreate} size="large">Add Zone</Button>
+                </Space>
             </div>
 
-            <Card bordered={false}>
+            <Card
+                bordered={false}
+                style={{
+                    borderRadius: 12,
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                    border: '1px solid #F1F5F9',
+                    overflow: 'hidden'
+                }}
+                bodyStyle={{ padding: 0 }}
+            >
                 <Table
                     columns={columns}
                     dataSource={zones}
                     rowKey="id"
                     loading={loading}
-                    pagination={false}
+                    pagination={{ pageSize: 10 }}
                     size="middle"
                 />
             </Card>
@@ -130,32 +154,33 @@ export default function ZoneManagement() {
                 open={modalOpen}
                 onCancel={() => { setModalOpen(false); setEditingZone(null); form.resetFields(); }}
                 footer={null}
-                width={480}
+                width={500}
+                centered
             >
-                <Form form={form} layout="vertical" onFinish={handleSave}>
+                <Form form={form} layout="vertical" onFinish={handleSave} style={{ marginTop: 24 }}>
                     <Form.Item name="name" label="Zone Name" rules={[{ required: true }]}>
-                        <Input placeholder="e.g. North Zone" />
+                        <Input placeholder="e.g. North Zone" size="large" />
                     </Form.Item>
                     <Form.Item name="description" label="Description">
-                        <Input.TextArea rows={2} placeholder="Coverage area description" />
+                        <Input.TextArea rows={3} placeholder="Coverage area description" />
                     </Form.Item>
                     <Form.Item name="color" label="Zone Color" initialValue="#1890ff">
-                        <ColorPicker />
+                        <ColorPicker format="hex" showText />
                     </Form.Item>
                     <Form.Item name="max_capacity" label="Max Vehicle Capacity">
-                        <Input type="number" placeholder="Max vehicles in zone" />
+                        <Input type="number" placeholder="Max vehicles in zone" size="large" />
                     </Form.Item>
                     {editingZone && (
                         <Form.Item name="status" label="Status">
-                            <Select options={[
+                            <Select size="large" options={[
                                 { value: 'ACTIVE', label: 'Active' },
                                 { value: 'INACTIVE', label: 'Inactive' },
                                 { value: 'MAINTENANCE', label: 'Maintenance' },
                             ]} />
                         </Form.Item>
                     )}
-                    <Form.Item>
-                        <Button type="primary" htmlType="submit" block size="large">
+                    <Form.Item style={{ marginBottom: 0, marginTop: 24 }}>
+                        <Button type="primary" htmlType="submit" block size="large" style={{ fontWeight: 600 }}>
                             {editingZone ? 'Update Zone' : 'Create Zone'}
                         </Button>
                     </Form.Item>

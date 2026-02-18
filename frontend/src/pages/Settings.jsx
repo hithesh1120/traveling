@@ -38,7 +38,7 @@ export default function Settings() {
           <Card
             title={
               <Space>
-                <LockOutlined style={{ color: '#ff4d4f' }} />
+                <LockOutlined style={{ color: '#EF4444' }} />
                 <span>Change Password</span>
               </Space>
             }

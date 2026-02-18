@@ -52,11 +52,7 @@ def run_verification():
     driver_user = register_user(driver_email, "password123", "DRIVER", "Test Driver", admin_headers)
     driver_id = driver_user["id"] if driver_user else None
 
-    # Fleet Manager
-    fleet_email = f"fleet_{timestamp}@test.com"
-    fleet_user = register_user(fleet_email, "password123", "FLEET_MANAGER", "Test FleetMgr", admin_headers)
-
-    if not msme_user or not driver_user or not fleet_user:
+    if not msme_user or not driver_user:
         print("Failed to create test users.")
         sys.exit(1)
 
@@ -64,12 +60,10 @@ def run_verification():
     print("Logging in as new users...")
     msme_token = login(msme_email, "password123")
     driver_token = login(driver_email, "password123")
-    fleet_token = login(fleet_email, "password123")
     
     # Headers
     msme_headers = {"Authorization": f"Bearer {msme_token}"}
     driver_headers = {"Authorization": f"Bearer {driver_token}"}
-    fleet_headers = {"Authorization": f"Bearer {fleet_token}"}
 
     # 3. Create Vehicle
     print_step("3. Creating Test Vehicle")
@@ -117,13 +111,13 @@ def run_verification():
     print(f"Shipment Created: {shipment['tracking_number']} (ID: {shipment_id})")
     print(f"Status: {shipment['status']}")
 
-    # 5. Fleet Manager Dispatches Shipment
-    print_step("5. Dispatching Shipment")
+    # 5. Admin Dispatches Shipment
+    print_step("5. Dispatching Shipment (Admin)")
     assign_payload = {
         "vehicle_id": vehicle_id,
         "driver_id": driver_id
     }
-    dispatch_res = requests.post(f"{BASE_URL}/shipments/{shipment_id}/assign", json=assign_payload, headers=fleet_headers)
+    dispatch_res = requests.post(f"{BASE_URL}/shipments/{shipment_id}/assign", json=assign_payload, headers=admin_headers)
     
     if dispatch_res.status_code != 200:
          print(f"Dispatch failed: {dispatch_res.text}")

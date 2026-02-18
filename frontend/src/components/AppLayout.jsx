@@ -25,6 +25,7 @@ import {
   BankOutlined,
   CompassOutlined,
   BoxPlotOutlined,
+  DownOutlined,
 } from '@ant-design/icons';
 
 const { Sider, Content, Header } = Layout;
@@ -37,7 +38,6 @@ const ROLE_LABELS = {
   VENDOR: 'Vendor (Factory)', // Keeping as is but restricted
   MSME: 'Business (MSME)',
   DRIVER: 'Driver',
-  FLEET_MANAGER: 'Fleet Manager',
 };
 
 const ROLE_COLORS = {
@@ -45,7 +45,6 @@ const ROLE_COLORS = {
   VENDOR: 'blue',
   MSME: 'cyan',
   DRIVER: 'volcano',
-  FLEET_MANAGER: 'geekblue',
 };
 
 const getSettingsPath = (role) => {
@@ -53,7 +52,6 @@ const getSettingsPath = (role) => {
     case 'SUPER_ADMIN': return '/admin/settings';
     case 'MSME': return '/msme/settings';
     case 'DRIVER': return '/driver/settings';
-    case 'FLEET_MANAGER': return '/fleet/settings';
     default: return '/settings';
   }
 };
@@ -89,17 +87,6 @@ const getMenuItems = (role) => {
         { key: '/driver/history', icon: <HistoryOutlined />, label: <Link to="/driver/history">Delivery History</Link> },
         { type: 'divider' },
         { key: '/driver/settings', icon: <SettingOutlined />, label: <Link to="/driver/settings">Settings</Link> },
-      ];
-    case 'FLEET_MANAGER':
-      return [
-        { key: '/fleet', icon: <DashboardOutlined />, label: <Link to="/fleet">Dashboard</Link> },
-        { key: '/fleet/shipments', icon: <SendOutlined />, label: <Link to="/fleet/shipments">Shipments</Link> },
-        { key: '/fleet/vehicles', icon: <CarOutlined />, label: <Link to="/fleet/vehicles">Vehicles</Link> },
-
-        { key: '/fleet/analytics', icon: <FundOutlined />, label: <Link to="/fleet/analytics">Analytics</Link> },
-        { key: '/fleet/reports', icon: <BarChartOutlined />, label: <Link to="/fleet/reports">Reports</Link> },
-        { type: 'divider' },
-        { key: '/fleet/settings', icon: <SettingOutlined />, label: <Link to="/fleet/settings">Settings</Link> },
       ];
     default:
       return [];
@@ -169,7 +156,7 @@ export default function AppLayout({ children }) {
         collapsible
         collapsed={collapsed}
         onCollapse={setCollapsed}
-        width={240}
+        width={256}
         style={{
           overflow: 'auto',
           height: '100vh',
@@ -177,33 +164,50 @@ export default function AppLayout({ children }) {
           left: 0,
           top: 0,
           bottom: 0,
-          background: 'linear-gradient(180deg, #ff4d4f 0%, #ffccc7 100%)',
+          background: '#FFFFFF',
+          borderRight: '1px solid #E2E8F0',
+          boxShadow: 'none', // Remove shadow for cleaner look
+          zIndex: 100
         }}
         trigger={null}
         theme="light"
+        className="custom-sider"
       >
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-          {/* Logo */}
+          {/* Logo - Matches Landing Page */}
           <div
             style={{
-              height: 64,
+              height: 64, // Reduced height
               display: 'flex',
               alignItems: 'center',
               justifyContent: collapsed ? 'center' : 'flex-start',
-              padding: collapsed ? '0' : '0 20px',
-              borderBottom: '1px solid rgba(255,255,255,0.08)',
+              padding: collapsed ? '0' : '0 24px',
+              borderBottom: '1px solid #E2E8F0',
               flexShrink: 0,
             }}
           >
-            <BankOutlined style={{ fontSize: 24, color: '#fff' }} />
+            <div style={{
+              width: 32, // Slightly smaller logo
+              height: 32,
+              background: '#4F46E5', // Indigo-600
+              borderRadius: 6,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}>
+              <BankOutlined style={{ fontSize: 16, color: '#fff' }} />
+            </div>
+
             {!collapsed && (
               <span
                 style={{
-                  color: '#ffffff',
+                  color: '#0F172A', // Slate-900
                   fontSize: 15,
-                  fontWeight: 700,
+                  fontWeight: 600,
                   marginLeft: 12,
                   whiteSpace: 'nowrap',
+                  letterSpacing: '-0.01em'
                 }}
               >
                 Enterprise Logistics
@@ -215,59 +219,56 @@ export default function AppLayout({ children }) {
             mode="inline"
             selectedKeys={[location.pathname]}
             items={menuItems}
-            style={{ borderRight: 0, marginTop: 8, background: 'transparent', flex: 1, overflowY: 'auto' }}
+            style={{
+              borderRight: 0,
+              marginTop: 8,
+              background: 'transparent',
+              flex: 1,
+              overflowY: 'auto',
+              padding: '0 8px' // Tighter padding
+            }}
             className="custom-sidebar-menu"
           />
-
-
         </div>
       </Sider>
 
-      <Layout style={{ marginLeft: collapsed ? 80 : 240, transition: 'margin-left 0.2s' }}>
+      <Layout style={{ marginLeft: collapsed ? 80 : 256, transition: 'all 0.2s', background: '#F8FAFC', minHeight: '100vh' }}>
         {/* Header */}
         <Header
           style={{
-            background: '#fff',
+            background: '#FFFFFF',
             padding: '0 24px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+            borderBottom: '1px solid #E2E8F0',
             position: 'sticky',
             top: 0,
-            zIndex: 10,
-            height: 64,
+            zIndex: 90,
+            height: 64, // Reduced height from 72
+            boxShadow: 'none'
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
             {collapsed ? (
               <MenuUnfoldOutlined
                 onClick={() => setCollapsed(false)}
-                style={{ fontSize: 18, cursor: 'pointer', color: '#595959' }}
+                style={{ fontSize: 18, cursor: 'pointer', color: '#64748B' }}
               />
             ) : (
               <MenuFoldOutlined
                 onClick={() => setCollapsed(true)}
-                style={{ fontSize: 18, cursor: 'pointer', color: '#595959' }}
+                style={{ fontSize: 18, cursor: 'pointer', color: '#64748B' }}
               />
             )}
-            <Text strong style={{ fontSize: 16, color: '#262626' }}>
-              Enterprise Logistics Operations
-            </Text>
+            <div style={{ height: 24, paddingLeft: 16, borderLeft: '1px solid #E2E8F0', display: 'flex', alignItems: 'center' }}>
+              <Text style={{ fontSize: 14, fontWeight: 500, color: '#64748B' }}>
+                Operations Dashboard
+              </Text>
+            </div>
           </div>
 
-          {/* Center Branding - "Hassy"/Glassy Style */}
-          <div style={{
-            flex: 1,
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            opacity: 0.8
-          }}>
-            
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <Tooltip title="Back to Home">
               <Button
                 type="text"
@@ -276,14 +277,14 @@ export default function AppLayout({ children }) {
                   const paths = {
                     SUPER_ADMIN: '/admin',
                     MSME: '/msme',
-                    FLEET_MANAGER: '/fleet',
-                    DRIVER: '/driver/dashboard'
+                    DRIVER: '/driver'
                   };
                   navigate(paths[user?.role] || '/');
                 }}
-                style={{ color: '#595959', fontSize: 16 }}
+                style={{ color: '#64748B', fontSize: 16 }}
               />
             </Tooltip>
+
             <Dropdown
               menu={{
                 items: notifications.length > 0 ? [
@@ -296,13 +297,13 @@ export default function AppLayout({ children }) {
                   ...notifications.map(n => ({
                     key: n.id,
                     label: (
-                      <div style={{ padding: '8px 0', maxWidth: 250 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Text strong={!n.read} style={{ fontSize: 13 }}>{n.title}</Text>
-                          {!n.read && <Badge status="processing" />}
+                      <div style={{ padding: '8px 0', maxWidth: 260 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                          <Text strong={!n.read} style={{ fontSize: 13, color: '#1E293B' }}>{n.title}</Text>
+                          {!n.read && <Badge status="processing" color="#4F46E5" />}
                         </div>
-                        <div style={{ fontSize: 12, color: '#8c8c8c', marginTop: 4 }}>{n.message}</div>
-                        <div style={{ fontSize: 10, color: '#bfbfbf', marginTop: 4 }}>
+                        <div style={{ fontSize: 12, color: '#64748B', lineHeight: 1.4 }}>{n.message}</div>
+                        <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>
                           {new Date(n.created_at).toLocaleString()}
                         </div>
                       </div>
@@ -310,49 +311,67 @@ export default function AppLayout({ children }) {
                   })),
                   { type: 'divider' },
                   {
-                    label: <div style={{ textAlign: 'center', color: '#1890ff' }}>View All</div>,
+                    label: <div style={{ textAlign: 'center', color: '#4F46E5', fontWeight: 500 }}>View All Notifications</div>,
                     key: 'view-all',
-                    onClick: () => window.location.href = '/admin/operations' // Or dedicated notifications page
+                    onClick: () => {
+                      const prefix = {
+                        SUPER_ADMIN: '/admin',
+                        MSME: '/msme',
+                        DRIVER: '/driver'
+                      }[user?.role] || '';
+                      navigate(`${prefix}/notifications`);
+                    }
                   }
                 ] : [{ label: 'No new notifications', key: 'empty', disabled: true }]
               }}
               trigger={['click']}
               placement="bottomRight"
+              overlayStyle={{ width: 320 }}
             >
-              <div style={{ cursor: 'pointer', padding: '0 8px' }}>
-                <Badge count={unreadCount} size="small" offset={[0, 0]}>
-                  <BellOutlined style={{ fontSize: 18, color: '#595959' }} />
+              <div style={{ cursor: 'pointer', padding: '0 8px', display: 'flex', alignItems: 'center' }}>
+                <Badge count={unreadCount} size="small" offset={[0, 0]} color="#EF4444">
+                  <BellOutlined style={{ fontSize: 18, color: '#64748B' }} />
                 </Badge>
               </div>
             </Dropdown>
+
+            <div style={{ width: 1, height: 24, background: '#E2E8F0', margin: '0 4px' }} />
 
             <Dropdown menu={{ items: userMenuItems }} trigger={['click']} placement="bottomRight">
               <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 10,
+                  gap: 12,
                   cursor: 'pointer',
-                  padding: '4px 8px',
-                  borderRadius: 6,
+                  padding: '6px 12px',
+                  borderRadius: 999,
                   transition: 'background 0.2s',
+                  border: '1px solid transparent'
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = '#f5f5f5')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#F1F5F9';
+                  e.currentTarget.style.borderColor = '#E2E8F0';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.borderColor = 'transparent';
+                }}
               >
                 <Avatar
-                  style={{ backgroundColor: themeToken.colorPrimary }}
+                  style={{ backgroundColor: ROLE_COLORS[user?.role] || themeToken.colorPrimary }}
                   icon={<UserOutlined />}
                   size="small"
                 />
-                <div style={{ lineHeight: 1.3 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: '#262626' }}>
+                <div style={{ lineHeight: 1.2 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#1E293B' }}>
                     {user?.name || user?.email?.split('@')[0]}
                   </div>
-                  <div style={{ fontSize: 11, color: '#8c8c8c' }}>
+                  <div style={{ fontSize: 11, color: '#64748B' }}>
                     {ROLE_LABELS[user?.role] || user?.role}
                   </div>
                 </div>
+                <DownOutlined style={{ fontSize: 10, color: '#94A3B8' }} />
               </div>
             </Dropdown>
           </div>
@@ -361,9 +380,12 @@ export default function AppLayout({ children }) {
         {/* Content */}
         <Content
           style={{
-            padding: 24,
-            background: '#f5f5f5',
-            minHeight: 'calc(100vh - 64px)',
+            padding: 32,
+            background: 'transparent',
+            minHeight: 'calc(100vh - 72px)',
+            maxWidth: 1600,
+            width: '100%',
+            margin: '0 auto'
           }}
         >
           {children}

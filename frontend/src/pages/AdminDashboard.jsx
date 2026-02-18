@@ -48,7 +48,7 @@ export default function AdminDashboard() {
     });
     const [auditLogs, setAuditLogs] = useState([]);
     const [loading, setLoading] = useState(true);
-    
+
     // Modal State
     const [assignModalOpen, setAssignModalOpen] = useState(false);
     const [assignMode, setAssignMode] = useState('PENDING');
@@ -77,37 +77,32 @@ export default function AdminDashboard() {
         {
             title: 'Created Today',
             value: stats.scheduled_today,
-            icon: <CalendarOutlined />,
-            color: '#000000',
-            bg: '#f5f5f5',
+            icon: <CalendarOutlined style={{ fontSize: 24, color: '#4F46E5' }} />,
+            bg: '#EEF2FF', // Indigo-50
         },
         {
-            title: 'Delayed Shipments',
+            title: 'Delayed',
             value: stats.delayed_deliveries || 0,
-            icon: <WarningOutlined />,
-            color: '#000000',
-            bg: '#f5f5f5',
+            icon: <WarningOutlined style={{ fontSize: 24, color: '#EF4444' }} />,
+            bg: '#FEF2F2', // Red-50
         },
         {
-            title: 'Active Shipments',
-            value: stats.vehicles_on_site, // Mapped from backend active_shipments
-            icon: <CarOutlined />,
-            color: '#000000',
-            bg: '#f5f5f5',
+            title: 'In Transit',
+            value: stats.vehicles_on_site,
+            icon: <CarOutlined style={{ fontSize: 24, color: '#0EA5E9' }} />,
+            bg: '#E0F2FE', // Sky-50
         },
         {
-            title: 'Pending Assign',
-            value: stats.pending_approvals, // Mapped from backend pending_count
-            icon: <CheckCircleOutlined />,
-            color: '#000000',
-            bg: '#f5f5f5',
+            title: 'Pending',
+            value: stats.pending_approvals,
+            icon: <CheckCircleOutlined style={{ fontSize: 24, color: '#F59E0B' }} />,
+            bg: '#FEF3C7', // Amber-50
         },
         {
             title: 'Active Drivers',
-            value: stats.dock_utilization, // Mapped from backend active_drivers
-            icon: <TeamOutlined />,
-            color: '#000000',
-            bg: '#f5f5f5',
+            value: stats.dock_utilization,
+            icon: <TeamOutlined style={{ fontSize: 24, color: '#10B981' }} />,
+            bg: '#D1FAE5', // Emerald-50
         },
     ];
 
@@ -115,39 +110,33 @@ export default function AdminDashboard() {
         {
             title: 'Operations Monitor',
             desc: 'Real-time tracking & alerts',
-            icon: <ClockCircleOutlined style={{ fontSize: 24, color: '#000000' }} />,
+            icon: <ClockCircleOutlined style={{ fontSize: 20, color: '#4F46E5' }} />,
             path: '/admin/operations',
-            color: '#f5f5f5',
         },
         {
             title: 'System Users',
             desc: 'RBAC & Role Management',
-            icon: <TeamOutlined style={{ fontSize: 24, color: '#000000' }} />,
+            icon: <TeamOutlined style={{ fontSize: 20, color: '#4F46E5' }} />,
             path: '/admin/users',
-            color: '#f5f5f5',
         },
         {
-            title: 'Reports & Analytics',
+            title: 'Analytics',
             desc: 'Performance metrics',
-            icon: <AppstoreOutlined style={{ fontSize: 24, color: '#000000' }} />,
+            icon: <AppstoreOutlined style={{ fontSize: 20, color: '#4F46E5' }} />,
             path: '/admin/analytics',
-            color: '#f5f5f5',
         },
         {
-            title: 'All Shipments',
+            title: 'Shipments',
             desc: 'Track & manage shipments',
-            icon: <CarOutlined style={{ fontSize: 24, color: '#000000' }} />,
+            icon: <CarOutlined style={{ fontSize: 20, color: '#4F46E5' }} />,
             path: '/admin/shipments',
-            color: '#f5f5f5',
         },
         {
-            title: 'Vehicle Fleet',
+            title: 'Fleet',
             desc: 'Manage vehicles',
-            icon: <CarOutlined style={{ fontSize: 24, color: '#000000' }} />,
+            icon: <CarOutlined style={{ fontSize: 20, color: '#4F46E5' }} />,
             path: '/admin/vehicles',
-            color: '#f5f5f5',
         },
-
     ];
 
     const getTimelineColor = (action) => {
@@ -162,16 +151,12 @@ export default function AdminDashboard() {
         return (
             <div style={{ padding: 24 }}>
                 <Skeleton active paragraph={{ rows: 1 }} />
-                <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
-                    {[1, 2, 3, 4, 5].map(i => (
-                        <Col xs={24} sm={12} md={8} lg={4} xl={4} key={i}>
+                <Row gutter={[24, 24]} style={{ marginTop: 24 }}>
+                    {[1, 2, 3, 4].map(i => (
+                        <Col xs={24} sm={12} lg={6} key={i}>
                             <Card bordered={false}><Skeleton active avatar paragraph={false} /></Card>
                         </Col>
                     ))}
-                </Row>
-                <Row gutter={[24, 24]} style={{ marginTop: 24 }}>
-                    <Col xs={24} lg={16}><Card bordered={false}><Skeleton active paragraph={{ rows: 4 }} /></Card></Col>
-                    <Col xs={24} lg={8}><Card bordered={false}><Skeleton active paragraph={{ rows: 4 }} /></Card></Col>
                 </Row>
             </div>
         );
@@ -180,30 +165,30 @@ export default function AdminDashboard() {
     return (
         <div>
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
                 <div>
-                    <Title level={3} style={{ margin: 0 }}>Operations Overview</Title>
-                    <Text type="secondary">Real-time logistics operations monitor</Text>
+                    <Title level={2} style={{ margin: 0, fontWeight: 700, color: '#0F172A' }}>Dashboard</Title>
+                    <Text type="secondary" style={{ fontSize: 16 }}>Overview of today's logistics performance</Text>
                 </div>
-                <Space>
-                    <Button icon={<ReloadOutlined />} onClick={fetchDashboardData}>Refresh</Button>
+                <Space size={12}>
+                    <Button icon={<ReloadOutlined />} onClick={fetchDashboardData} size="large">Refresh</Button>
                     <Dropdown menu={{
                         items: [
-                            { 
-                                key: 'assign', 
-                                label: 'Assign Orders', 
-                                icon: <PlusCircleOutlined />, 
-                                onClick: () => { setAssignMode('PENDING'); setAssignModalOpen(true); } 
+                            {
+                                key: 'assign',
+                                label: 'Assign Orders',
+                                icon: <PlusCircleOutlined />,
+                                onClick: () => { setAssignMode('PENDING'); setAssignModalOpen(true); }
                             },
-                            { 
-                                key: 'reassign', 
-                                label: 'Reassign Orders', 
-                                icon: <SwapOutlined />, 
-                                onClick: () => { setAssignMode('ASSIGNED'); setAssignModalOpen(true); } 
+                            {
+                                key: 'reassign',
+                                label: 'Reassign Orders',
+                                icon: <SwapOutlined />,
+                                onClick: () => { setAssignMode('ASSIGNED'); setAssignModalOpen(true); }
                             }
                         ]
                     }}>
-                        <Button type="primary" icon={<ArrowRightOutlined />}>
+                        <Button type="primary" icon={<ArrowRightOutlined />} size="large">
                             Manage Shipments <DownOutlined />
                         </Button>
                     </Dropdown>
@@ -213,28 +198,30 @@ export default function AdminDashboard() {
             {/* Stats Row */}
             <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
                 {statCards.map((s, i) => (
-                    <Col xs={24} sm={12} md={8} flex="1" key={i}>
-                        <Card bordered={false} bodyStyle={{ padding: 20, height: '100%' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                <Statistic
-                                    title={<Text type="secondary" style={{ fontSize: 13 }}>{s.title}</Text>}
-                                    value={s.value}
-                                    valueStyle={{ fontSize: 28, fontWeight: 700, color: '#262626' }}
-                                />
-                                <div
-                                    style={{
-                                        width: 44,
-                                        height: 44,
-                                        borderRadius: 10,
-                                        background: s.bg,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        fontSize: 20,
-                                        color: s.color,
-                                    }}
-                                >
+                    <Col xs={24} sm={12} lg={4} flex="auto" key={i}>
+                        <Card
+                            bordered
+                            hoverable
+                            style={{
+                                height: '100%',
+                                borderRadius: 6, // Matching theme
+                                boxShadow: 'none',
+                                border: '1px solid #E2E8F0'
+                            }}
+                            bodyStyle={{ padding: '20px 24px' }}
+                        >
+                            <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                                    <Text type="secondary" style={{ fontSize: 13, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                        {s.title}
+                                    </Text>
                                     {s.icon}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                                    <span style={{ fontSize: 28, fontWeight: 700, color: '#0F172A', lineHeight: 1 }}>
+                                        {s.value}
+                                    </span>
+                                    {s.title === 'Delayed' && s.value > 0 && <Tag color="red" style={{ margin: 0 }}>Action Req.</Tag>}
                                 </div>
                             </div>
                         </Card>
@@ -242,81 +229,93 @@ export default function AdminDashboard() {
                 ))}
             </Row>
 
-            {/* Two Column Layout */}
-            <Row gutter={[24, 24]}>
-                {/* Management Modules */}
+            {/* Main Content Grid */}
+            <Row gutter={[32, 32]}>
+                {/* Modules */}
                 <Col xs={24} lg={16}>
-                    <Card title="Management Modules" bordered={false}>
-                        <Row gutter={[16, 16]}>
-                            {moduleCards.map((m, i) => (
-                                <Col xs={24} sm={8} key={i}>
-                                    <Link to={m.path} style={{ textDecoration: 'none' }}>
-                                        <Card
-                                            hoverable
-                                            size="small"
-                                            bodyStyle={{ padding: 20 }}
-                                        >
-                                            <div
-                                                style={{
-                                                    width: 44,
-                                                    height: 44,
-                                                    borderRadius: '50%',
-                                                    background: m.color,
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    marginBottom: 12,
-                                                }}
-                                            >
+                    <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Title level={4} style={{ margin: 0 }}>Quick Access</Title>
+                    </div>
+                    <Row gutter={[24, 24]}>
+                        {moduleCards.map((m, i) => (
+                            <Col xs={24} sm={8} key={i}>
+                                <Link to={m.path} style={{ textDecoration: 'none' }}>
+                                    <Card
+                                        hoverable
+                                        bordered
+                                        style={{
+                                            borderRadius: 6,
+                                            border: '1px solid #E2E8F0',
+                                            boxShadow: 'none',
+                                            height: '100%'
+                                        }}
+                                        bodyStyle={{ padding: 24 }}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                                            <div style={{
+                                                padding: 8,
+                                                borderRadius: 6,
+                                                background: '#F1F5F9', // Slate-100
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                            }}>
                                                 {m.icon}
                                             </div>
-                                            <Text strong style={{ fontSize: 14 }}>{m.title}</Text>
-                                            <br />
-                                            <Text type="secondary" style={{ fontSize: 12 }}>{m.desc}</Text>
-                                        </Card>
-                                    </Link>
-                                </Col>
-                            ))}
-                        </Row>
-                    </Card>
+                                            <Text strong style={{ fontSize: 15, color: '#0F172A' }}>{m.title}</Text>
+                                        </div>
+                                        <Text type="secondary" style={{ fontSize: 13, lineHeight: 1.5, display: 'block' }}>
+                                            {m.desc}
+                                        </Text>
+                                    </Card>
+                                </Link>
+                            </Col>
+                        ))}
+                    </Row>
                 </Col>
 
                 {/* Activity Feed */}
                 <Col xs={24} lg={8}>
                     <Card
-                        title="Recent Activity"
-                        extra={<Tag color="#ff4d4f">Live Feed</Tag>}
+                        title={<span style={{ fontSize: 16, fontWeight: 600 }}>Recent Activity</span>}
+                        extra={<Tag color="blue">Live</Tag>}
                         bordered={false}
-                        bodyStyle={{ maxHeight: 450, overflowY: 'auto', padding: '12px 20px' }}
+                        style={{
+                            borderRadius: 12,
+                            border: '1px solid #F1F5F9',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                            height: '100%'
+                        }}
+                        bodyStyle={{ maxHeight: 500, overflowY: 'auto', padding: '0 24px 24px' }}
                     >
                         {auditLogs.length === 0 ? (
-                            <Text type="secondary" style={{ display: 'block', textAlign: 'center', padding: 40 }}>
-                                No activity recorded yet.
-                            </Text>
+                            <div style={{ padding: '32px 0', textAlign: 'center' }}>
+                                <Text type="secondary">No activity recorded yet.</Text>
+                            </div>
                         ) : (
-                            <Timeline
-                                items={auditLogs.map((log) => ({
-                                    color: getTimelineColor(log.action),
-                                    children: (
-                                        <div>
-                                            <Text style={{ fontSize: 13 }}>{log.details}</Text>
-                                            <br />
-                                            <Space size={4} style={{ marginTop: 4 }}>
-                                                <Tag color="default" style={{ fontSize: 11 }}>{log.user?.role}</Tag>
-                                                <Text type="secondary" style={{ fontSize: 11 }}>
-                                                    <ClockCircleOutlined style={{ marginRight: 4 }} />
-                                                    {new Date(log.timestamp).toLocaleString()}
-                                                </Text>
-                                            </Space>
-                                        </div>
-                                    ),
-                                }))}
-                            />
+                            <div style={{ paddingTop: 24 }}>
+                                <Timeline
+                                    items={auditLogs.map((log) => ({
+                                        color: getTimelineColor(log.action),
+                                        children: (
+                                            <div style={{ paddingBottom: 12 }}>
+                                                <Text style={{ fontSize: 13, color: '#334155' }}>{log.details}</Text>
+                                                <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                    <Tag style={{ margin: 0, fontSize: 10, lineHeight: '18px' }}>{log.user?.role}</Tag>
+                                                    <Text type="secondary" style={{ fontSize: 11 }}>
+                                                        {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </Text>
+                                                </div>
+                                            </div>
+                                        ),
+                                    }))}
+                                />
+                            </div>
                         )}
                     </Card>
                 </Col>
             </Row>
-            
+
             <AssignOrdersModal
                 open={assignModalOpen}
                 onCancel={() => setAssignModalOpen(false)}

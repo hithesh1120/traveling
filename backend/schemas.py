@@ -161,6 +161,37 @@ class WarehouseReceiveItem(BaseModel):
 class WarehouseReceiveRequest(BaseModel):
     items: List[WarehouseReceiveItem]
 
+# --- Analytics Schemas ---
+
+class AnalyticsFleetResponse(BaseModel):
+    total_vehicles: int
+    available: int
+    on_trip: int
+    maintenance: int
+    utilization_rate: float
+
+class AnalyticsChartData(BaseModel):
+    date: str
+    count: int
+
+class AnalyticsShipmentResponse(BaseModel):
+    total: int
+    pending: int
+    active: int
+    delivered: int
+    confirmed: int
+    today: int
+    completion_rate: float
+    chart_data: List[AnalyticsChartData]
+
+class AnalyticsDriverResponse(BaseModel):
+    driver_id: int
+    name: str
+    email: str
+    total_shipments: int
+    completed: int
+    active: int
+
 class AuditLogResponse(BaseModel):
     id: int
     action: str

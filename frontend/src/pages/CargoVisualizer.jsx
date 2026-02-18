@@ -99,7 +99,7 @@ export default function CargoVisualizer() {
       }}>
         <div>
           <Title level={3} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
-            <BoxPlotOutlined style={{ color: '#ff4d4f' }} />
+            <BoxPlotOutlined style={{ color: '#EF4444' }} />
             3D Cargo Visualizer
           </Title>
           <Text type="secondary" style={{ fontSize: 13 }}>
@@ -217,7 +217,7 @@ export default function CargoVisualizer() {
                 style={{ borderRadius: 16 }}
                 title={
                   <Space>
-                    <CarOutlined style={{ color: '#ff4d4f' }} />
+                    <CarOutlined style={{ color: '#EF4444' }} />
                     <span>Vehicle Details</span>
                   </Space>
                 }
@@ -313,7 +313,7 @@ export default function CargoVisualizer() {
                 border: '1px solid rgba(255, 77, 79, 0.12)',
               }}>
                 <Space>
-                  <InfoCircleOutlined style={{ color: '#ff4d4f', fontSize: 14 }} />
+                  <InfoCircleOutlined style={{ color: '#EF4444', fontSize: 14 }} />
                   <Text style={{ fontSize: 12, color: '#cc4040' }}>
                     Drag to rotate · Scroll to zoom · The fill level reflects volume usage.
                   </Text>

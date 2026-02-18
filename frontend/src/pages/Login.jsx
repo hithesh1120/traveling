@@ -23,11 +23,12 @@ export default function Login() {
             else if (role === 'VENDOR') navigate('/vendor');
             else if (role === 'MSME') navigate('/msme');
             else if (role === 'DRIVER') navigate('/driver');
-            else if (role === 'FLEET_MANAGER') navigate('/fleet');
             else setError('Unknown role');
         } catch (err) {
             console.error(err);
-            setError('Invalid credentials or server error');
+            // Use specific error from backend if available, otherwise generic
+            const backendError = err.response?.data?.detail;
+            setError(backendError || 'Invalid credentials or server error');
         } finally {
             setLoading(false);
         }
@@ -40,7 +41,7 @@ export default function Login() {
                 className="auth-hero"
                 style={{
                     flex: 1,
-                    background: 'linear-gradient(135deg, #ff4d4f 0%, #ffccc7 100%)',
+                    background: 'linear-gradient(135deg, #4F46E5 0%, #10B981 100%)',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
@@ -58,16 +59,16 @@ export default function Login() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, position: 'relative', zIndex: 1 }}>
                     <div
                         style={{
-                            width: 40,
-                            height: 40,
-                            background: '#fff',
-                            borderRadius: 10,
+                            width: 36, // Matched to Landing Page
+                            height: 36, // Matched to Landing Page
+                            background: '#3B82F6', // Keep compatible or match theme? Landing uses #3B82F6 in CSS but Indigo #4F46E5 in theme. Let's stick to LandingPage.css value (.nav-logo) which is #3B82F6.
+                            borderRadius: 9, // Landing Page is 9px
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                         }}
                     >
-                        <BankOutlined style={{ fontSize: 22, color: '#ff4d4f' }} />
+                        <BankOutlined style={{ fontSize: 20, color: '#fff' }} /> {/* Font size 20 matches Landing Page */}
                     </div>
                     <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: 0.5 }}>Enterprise Logistics</span>
                 </div>
@@ -82,18 +83,18 @@ export default function Login() {
                     </p>
                     <div style={{ display: 'flex', gap: 24, marginTop: 32 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#52c41a' }} />
-                            <span style={{ fontSize: 14, opacity: 0.8 }}>Bank-grade Security</span>
+                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#fff' }} /> {/* Changed to white/light for visibility on green/indigo */}
+                            <span style={{ fontSize: 14, opacity: 0.9 }}>Bank-grade Security</span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#52c41a' }} />
-                            <span style={{ fontSize: 14, opacity: 0.8 }}>99.9% Uptime</span>
+                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#fff' }} />
+                            <span style={{ fontSize: 14, opacity: 0.9 }}>99.9% Uptime</span>
                         </div>
                     </div>
                 </div>
 
                 {/* Footer */}
-                <div style={{ position: 'relative', zIndex: 1, fontSize: 13, opacity: 0.4 }}>
+                <div style={{ position: 'relative', zIndex: 1, fontSize: 13, opacity: 0.6 }}>
                     © 2026 Enterprise Logistics Platform
                 </div>
             </div>
@@ -112,16 +113,16 @@ export default function Login() {
             >
                 {/* Back to Home */}
                 <div style={{ marginBottom: 24 }}>
-                    <Link to="/" style={{ color: '#8c8c8c', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Link to="/" style={{ color: '#64748B', fontSize: 14, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
                         <HomeOutlined /> Back to Home
                     </Link>
                 </div>
 
                 <div style={{ marginBottom: 32 }}>
-                    <Title level={2} style={{ marginBottom: 8 }}>
+                    <Title level={2} style={{ marginBottom: 8, color: '#0F172A', fontWeight: 700 }}>
                         Welcome back
                     </Title>
-                    <Text type="secondary">Sign in to Enterprise Logistics Operations</Text>
+                    <Text type="secondary" style={{ fontSize: 15 }}>Sign in to Enterprise Logistics Operations</Text>
                 </div>
 
                 {error && (
@@ -141,34 +142,51 @@ export default function Login() {
                     onFinish={handleSubmit}
                     size="large"
                     autoComplete="off"
+                    requiredMark={false} // Cleaner look
                 >
                     <Form.Item
                         name="email"
-                        label="Email Address"
+                        label={<span style={{ fontWeight: 500, color: '#334155' }}>Email Address</span>}
                         rules={[
                             { required: true, message: 'Email is required' },
                             { type: 'email', message: 'Enter a valid email' },
                         ]}
                     >
-                        <Input prefix={<MailOutlined style={{ color: '#bfbfbf' }} />} placeholder="you@company.com" />
+                        <Input
+                            prefix={<MailOutlined style={{ color: '#94A3B8' }} />}
+                            placeholder="you@company.com"
+                            style={{ borderRadius: 8, height: 48 }}
+                        />
                     </Form.Item>
 
                     <Form.Item
                         name="password"
-                        label="Password"
+                        label={<span style={{ fontWeight: 500, color: '#334155' }}>Password</span>}
                         rules={[{ required: true, message: 'Password is required' }]}
                     >
-                        <Input.Password prefix={<LockOutlined style={{ color: '#bfbfbf' }} />} placeholder="••••••••" />
+                        <Input.Password
+                            prefix={<LockOutlined style={{ color: '#94A3B8' }} />}
+                            placeholder="••••••••"
+                            style={{ borderRadius: 8, height: 48 }}
+                        />
                     </Form.Item>
 
-                    <Form.Item style={{ marginTop: 8 }}>
+                    <Form.Item style={{ marginTop: 24 }}>
                         <Button
                             type="primary"
                             htmlType="submit"
                             loading={loading}
                             icon={<LoginOutlined />}
                             block
-                            style={{ height: 48, fontWeight: 600, fontSize: 15 }}
+                            style={{
+                                height: 48,
+                                fontWeight: 600,
+                                fontSize: 16,
+                                borderRadius: 8,
+                                background: '#4F46E5', // Indigo-600
+                                borderColor: '#4F46E5',
+                                boxShadow: '0 4px 12px rgba(79, 70, 229, 0.2)'
+                            }}
                         >
                             Sign In
                         </Button>

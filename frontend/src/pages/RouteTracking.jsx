@@ -102,7 +102,7 @@ export default function RouteTracking() {
     const animRef = useRef(null);
 
     const headers = { Authorization: `Bearer ${token}` };
-    const basePath = user?.role === 'MSME' ? '/msme' : user?.role === 'DRIVER' ? '/driver' : user?.role === 'FLEET_MANAGER' ? '/fleet' : '/admin';
+    const basePath = user?.role === 'MSME' ? '/msme' : user?.role === 'DRIVER' ? '/driver' : '/admin';
 
     useEffect(() => {
         const fetchData = async () => {
@@ -241,7 +241,7 @@ export default function RouteTracking() {
                         {/* Route Line */}
                         <Polyline
                             positions={routePoints.map(p => [p.lat, p.lng])}
-                            pathOptions={{ color: '#ff4d4f', weight: 4, opacity: 0.7, dashArray: '10, 6' }}
+                            pathOptions={{ color: '#EF4444', weight: 4, opacity: 0.7, dashArray: '10, 6' }}
                         />
                         {/* Completed portion */}
                         {progress > 0 && (

@@ -23,32 +23,32 @@ export default function LandingPage() {
 
     const features = [
         {
-            icon: <SendOutlined style={{ fontSize: 28, color: '#ff4d4f' }} />,
+            icon: <SendOutlined style={{ fontSize: 28, color: '#1E3A8A' }} />,
             title: 'Smart Shipments',
             desc: 'Create, track, and manage shipments with real-time status updates and automated dispatch.',
         },
         {
-            icon: <CarOutlined style={{ fontSize: 28, color: '#52c41a' }} />,
+            icon: <CarOutlined style={{ fontSize: 28, color: '#1E3A8A' }} />,
             title: 'Fleet Management',
             desc: 'Monitor vehicle utilization, maintenance schedules, and driver assignments in one dashboard.',
         },
         {
-            icon: <BarChartOutlined style={{ fontSize: 28, color: '#722ed1' }} />,
+            icon: <BarChartOutlined style={{ fontSize: 28, color: '#1E3A8A' }} />,
             title: 'Analytics & Reports',
             desc: 'Data-driven insights on delivery performance, fleet efficiency, and operational KPIs.',
         },
         {
-            icon: <EnvironmentOutlined style={{ fontSize: 28, color: '#fa8c16' }} />,
+            icon: <EnvironmentOutlined style={{ fontSize: 28, color: '#1E3A8A' }} />,
             title: 'Zone Intelligence',
             desc: 'Geo-based zone management for optimized routing and faster last-mile delivery.',
         },
         {
-            icon: <SafetyOutlined style={{ fontSize: 28, color: '#13c2c2' }} />,
+            icon: <SafetyOutlined style={{ fontSize: 28, color: '#1E3A8A' }} />,
             title: 'Secure & Reliable',
             desc: 'Enterprise-grade security with role-based access, audit logs, and JWT authentication.',
         },
         {
-            icon: <ClockCircleOutlined style={{ fontSize: 28, color: '#f5222d' }} />,
+            icon: <ClockCircleOutlined style={{ fontSize: 28, color: '#1E3A8A' }} />,
             title: 'Real-Time Tracking',
             desc: 'Live shipment timeline with pickup, transit, delivery, and confirmation stages.',
         },
@@ -62,10 +62,10 @@ export default function LandingPage() {
     ];
 
     const roles = [
-        { icon: <TeamOutlined style={{ fontSize: 32, color: '#ff4d4f' }} />, title: 'Admin', desc: 'Full platform control: users, vehicles, zones, analytics, and shipment oversight.' },
-        { icon: <SendOutlined style={{ fontSize: 32, color: '#52c41a' }} />, title: 'MSME / Business', desc: 'Create shipments, track deliveries, and manage your logistics operations.' },
-        { icon: <CarOutlined style={{ fontSize: 32, color: '#fa8c16' }} />, title: 'Driver', desc: 'Accept assignments, update delivery status, and confirm deliveries with proof.' },
-        { icon: <BarChartOutlined style={{ fontSize: 32, color: '#722ed1' }} />, title: 'Fleet Manager', desc: 'Monitor fleet health, driver performance, and operational efficiency.' },
+        { icon: <TeamOutlined style={{ fontSize: 32, color: '#1E3A8A' }} />, title: 'Admin', desc: 'Full platform control: users, vehicles, zones, analytics, and shipment oversight.' },
+        { icon: <SendOutlined style={{ fontSize: 32, color: '#334155' }} />, title: 'MSME / Business', desc: 'Create shipments, track deliveries, and manage your logistics operations.' },
+        { icon: <CarOutlined style={{ fontSize: 32, color: '#334155' }} />, title: 'Driver', desc: 'Accept assignments, update delivery status, and confirm deliveries with proof.' },
+        { icon: <BarChartOutlined style={{ fontSize: 32, color: '#334155' }} />, title: 'Fleet Manager', desc: 'Monitor fleet health, driver performance, and operational efficiency.' },
     ];
 
     return (
@@ -97,9 +97,6 @@ export default function LandingPage() {
             {/* HERO SECTION */}
             <section className="hero-section">
                 <div className="hero-content">
-                    <div className="hero-badge">
-                        <ThunderboltOutlined /> Enterprise-Grade Logistics Platform
-                    </div>
                     <h1 className="hero-title">
                         Streamline Your<br />
                         <span className="gradient-text">Logistics Operations</span>
@@ -244,7 +241,7 @@ export default function LandingPage() {
                 <div className="footer-container">
                     <div className="footer-brand">
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                            <div style={{ width: 32, height: 32, background: '#ff4d4f', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div style={{ width: 32, height: 32, background: '#1E3A8A', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <BankOutlined style={{ fontSize: 16, color: '#fff' }} />
                             </div>
                             <span style={{ fontSize: 16, fontWeight: 700, color: '#262626' }}>Enterprise Logistics</span>

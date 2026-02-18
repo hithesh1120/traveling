@@ -43,8 +43,6 @@ export default function MSMEDashboard() {
 
     useEffect(() => {
         if (token) {
-            // Fetch saved addresses (Mocking for now as endpoint might not exist yet or is part of user profile)
-            // In a real scenario: axios.get(`${API}/users/addresses`, { headers }).then(...)
             setSavedAddresses([
                 { id: 1, label: 'Warehouse A - 123 Logistics Way', address: '123 Logistics Way, Ind. Park', lat: 12.9716, lng: 77.5946 },
                 { id: 2, label: 'Factory B - 456 Manuf. Rd', address: '456 Manuf. Rd, Ind. Zone', lat: 13.0827, lng: 80.2707 },
@@ -60,12 +58,10 @@ export default function MSMEDashboard() {
         if (type === 'pickup') {
             form.setFieldsValue({
                 pickup_address: selected.address,
-                // pickup_lat: selected.lat,
-                // pickup_lng: selected.lng
             });
         } else {
             form.setFieldsValue({
-                drop_address: selected.address, // Keep hidden or for reference
+                drop_address: selected.address,
                 drop_lat: selected.lat,
                 drop_lng: selected.lng
             });
@@ -123,7 +119,7 @@ export default function MSMEDashboard() {
     const columns = [
         {
             title: 'Tracking #', dataIndex: 'tracking_number', key: 'tracking_number',
-            render: (t, r) => <a onClick={() => navigate(r.id.toString())}>{t}</a>
+            render: (t, r) => <a onClick={() => navigate(r.id.toString())} style={{ fontWeight: 600, color: '#4F46E5' }}>{t}</a>
         },
         {
             title: 'Item', dataIndex: 'items', key: 'items',
@@ -137,47 +133,105 @@ export default function MSMEDashboard() {
         },
         { title: 'Pickup', dataIndex: 'pickup_address', key: 'pickup', ellipsis: true },
         { title: 'Drop', dataIndex: 'drop_address', key: 'drop', ellipsis: true },
-        { title: 'Weight', dataIndex: 'total_weight', key: 'weight', render: v => `${v} kg` },
+        { title: 'Weight', dataIndex: 'total_weight', key: 'weight', render: v => <Text type="secondary">{v} kg</Text> },
         {
             title: 'Status', dataIndex: 'status', key: 'status',
-            render: s => <span style={{ fontWeight: 500 }}>{s.replace(/_/g, ' ')}</span>
+            render: s => (
+                <Tag color={statusColor[s] || 'default'}>
+                    {s.replace(/_/g, ' ')}
+                </Tag>
+            )
         },
         {
             title: 'Created', dataIndex: 'created_at', key: 'created_at',
-            render: d => new Date(d).toLocaleDateString()
+            render: d => <Text type="secondary">{new Date(d).toLocaleDateString()}</Text>
         },
+    ];
+
+    const statCards = [
+        { title: 'Total Shipments', value: stats.total, icon: <ShoppingOutlined style={{ fontSize: 24, color: '#4F46E5' }} />, bg: '#EEF2FF' },
+        { title: 'Pending', value: stats.pending, icon: <ClockCircleOutlined style={{ fontSize: 24, color: '#F59E0B' }} />, bg: '#FEF3C7' },
+        { title: 'Active', value: stats.active, icon: <SendOutlined style={{ fontSize: 24, color: '#0EA5E9' }} />, bg: '#E0F2FE' },
+        { title: 'Delivered', value: stats.delivered, icon: <CheckCircleOutlined style={{ fontSize: 24, color: '#10B981' }} />, bg: '#D1FAE5' },
     ];
 
     return (
         <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                <Title level={3} style={{ margin: 0 }}>MSME Dashboard</Title>
-                <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
+                <div>
+                    <Title level={2} style={{ margin: 0, fontWeight: 700, color: '#0F172A' }}>MSME Portal</Title>
+                    <Text type="secondary" style={{ fontSize: 16 }}>Manage your logistics and shipments</Text>
+                </div>
+                <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)} size="large" style={{ borderRadius: 8 }}>
                     New Shipment
                 </Button>
             </div>
 
-            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-                <Col xs={12} sm={6}>
-                    <Card bordered={false}><Statistic title="Total Shipments" value={stats.total} prefix={<ShoppingOutlined />} /></Card>
-                </Col>
-                <Col xs={12} sm={6}>
-                    <Card bordered={false}><Statistic title="Pending" value={stats.pending} prefix={<ClockCircleOutlined />} /></Card>
-                </Col>
-                <Col xs={12} sm={6}>
-                    <Card bordered={false}><Statistic title="Active" value={stats.active} prefix={<SendOutlined />} /></Card>
-                </Col>
-                <Col xs={12} sm={6}>
-                    <Card bordered={false}><Statistic title="Delivered" value={stats.delivered} prefix={<CheckCircleOutlined />} /></Card>
-                </Col>
+            <Row gutter={[24, 24]} style={{ marginBottom: 32 }}>
+                {statCards.map((s, i) => (
+                    <Col xs={24} sm={12} md={6} key={i}>
+                        <Card
+                            bordered={false}
+                            style={{
+                                height: '100%',
+                                borderRadius: 12,
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                                border: '1px solid #F1F5F9'
+                            }}
+                            bodyStyle={{ padding: 24 }}
+                        >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                                <div style={{
+                                    width: 48,
+                                    height: 48,
+                                    borderRadius: 12,
+                                    background: s.bg,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}>
+                                    {s.icon}
+                                </div>
+                            </div>
+                            <Statistic
+                                value={s.value}
+                                valueStyle={{ fontSize: 32, fontWeight: 700, color: '#0F172A', lineHeight: 1.2 }}
+                            />
+                            <Text type="secondary" style={{ fontSize: 14, fontWeight: 500 }}>{s.title}</Text>
+                        </Card>
+                    </Col>
+                ))}
             </Row>
 
-            <MSMEAnalyticsGraph data={shipments} />
+            <Card
+                bordered={false}
+                className="mb-6"
+                style={{
+                    borderRadius: 12,
+                    border: '1px solid #F1F5F9',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                    marginBottom: 32,
+                    overflow: 'hidden'
+                }}
+            >
+                <div style={{ padding: '24px 24px 0' }}>
+                    <Title level={4} style={{ margin: 0 }}>Shipment Volume</Title>
+                </div>
+                <MSMEAnalyticsGraph data={shipments} />
+            </Card>
 
-            <Card title="Recent Shipments" bordered={false}>
+            <Card
+                title={<span style={{ fontSize: 16, fontWeight: 600 }}>Recent Shipments</span>}
+                bordered={false}
+                style={{
+                    borderRadius: 12,
+                    border: '1px solid #F1F5F9',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                }}
+            >
                 <Table
                     columns={columns}
-                    dataSource={shipments.slice(0, 3)}
+                    dataSource={shipments.slice(0, 5)}
                     rowKey="id"
                     loading={loading}
                     pagination={false}
@@ -190,73 +244,74 @@ export default function MSMEDashboard() {
                 open={modalOpen}
                 onCancel={() => setModalOpen(false)}
                 footer={null}
-                width={640}
+                width={700}
+                centered
             >
-                <Form form={form} layout="vertical" onFinish={handleCreate}>
+                <Form form={form} layout="vertical" onFinish={handleCreate} style={{ marginTop: 24 }}>
                     {/* Pickup Details Removed as per request. Auto-filling default. */}
                     <Form.Item name="pickup_address" initialValue="Default Warehouse - 123 Main St" hidden><Input /></Form.Item>
                     <Form.Item name="pickup_contact" initialValue="Dispatch Manager" hidden><Input /></Form.Item>
                     <Form.Item name="pickup_phone" initialValue="9999999999" hidden><Input /></Form.Item>
 
-                    <Divider orientation="left" plain>Drop Details</Divider>
-                    <Row gutter={16}>
+                    <Divider orientation="left" style={{ borderColor: '#E2E8F0' }}><Text strong style={{ color: '#4F46E5' }}>Drop Details</Text></Divider>
+                    <Row gutter={24}>
                         <Col span={24}>
                             <Form.Item label="Saved Drop Location">
                                 <Select
                                     placeholder="Select a saved location"
                                     onChange={(val) => handleAddressSelect('drop', val)}
                                     options={savedAddresses.map(a => ({ label: a.label, value: a.id }))}
+                                    size="large"
                                 />
                             </Form.Item>
                         </Col>
                         <Col span={12}>
                             <Form.Item name="drop_lat" label="Drop Latitude" rules={[{ required: true }]}>
-                                <InputNumber style={{ width: '100%' }} precision={6} />
+                                <InputNumber style={{ width: '100%' }} precision={6} size="large" />
                             </Form.Item>
                         </Col>
                         <Col span={12}>
                             <Form.Item name="drop_lng" label="Drop Longitude" rules={[{ required: true }]}>
-                                <InputNumber style={{ width: '100%' }} precision={6} />
+                                <InputNumber style={{ width: '100%' }} precision={6} size="large" />
                             </Form.Item>
                         </Col>
-                        {/* Hidden drop address, backend usually expects a string, we might need to construct one or send lat/lng separately */}
                         <Form.Item name="drop_address" hidden><Input /></Form.Item>
 
                         <Col span={12}>
-                            <Form.Item name="drop_contact" label="Contact Name"><Input /></Form.Item>
+                            <Form.Item name="drop_contact" label="Contact Name"><Input size="large" /></Form.Item>
                         </Col>
                         <Col span={12}>
-                            <Form.Item name="drop_phone" label="Phone"><Input /></Form.Item>
+                            <Form.Item name="drop_phone" label="Phone"><Input size="large" /></Form.Item>
                         </Col>
                     </Row>
 
-                    <Divider orientation="left" plain>Cargo Details</Divider>
-                    <Row gutter={16}>
+                    <Divider orientation="left" style={{ borderColor: '#E2E8F0' }}><Text strong style={{ color: '#4F46E5' }}>Cargo Details</Text></Divider>
+                    <Row gutter={24}>
                         <Col span={8}>
-                            <Form.Item name="item_name" label="Item Name"><Input /></Form.Item>
+                            <Form.Item name="item_name" label="Item Name"><Input size="large" /></Form.Item>
                         </Col>
                         <Col span={8}>
-                            <Form.Item name="item_qty" label="Qty"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item>
+                            <Form.Item name="item_qty" label="Qty"><InputNumber min={1} style={{ width: '100%' }} size="large" /></Form.Item>
                         </Col>
                         <Col span={8}>
-                            <Form.Item name="item_weight" label="Item Weight (kg)"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
+                            <Form.Item name="item_weight" label="Item Weight (kg)"><InputNumber min={0} style={{ width: '100%' }} size="large" /></Form.Item>
                         </Col>
                         <Col span={8}>
-                            <Form.Item name="item_length" label="Length (m)"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
+                            <Form.Item name="item_length" label="Length (m)"><InputNumber min={0} style={{ width: '100%' }} size="large" /></Form.Item>
                         </Col>
                         <Col span={8}>
-                            <Form.Item name="item_width" label="Width (m)"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
+                            <Form.Item name="item_width" label="Width (m)"><InputNumber min={0} style={{ width: '100%' }} size="large" /></Form.Item>
                         </Col>
                         <Col span={8}>
-                            <Form.Item name="item_height" label="Height (m)"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
+                            <Form.Item name="item_height" label="Height (m)"><InputNumber min={0} style={{ width: '100%' }} size="large" /></Form.Item>
                         </Col>
                     </Row>
 
                     <Form.Item name="description" label="Description"><Input.TextArea rows={2} /></Form.Item>
                     <Form.Item name="special_instructions" label="Special Instructions"><Input.TextArea rows={2} /></Form.Item>
 
-                    <Form.Item>
-                        <Button type="primary" htmlType="submit" loading={creating} block size="large">
+                    <Form.Item style={{ marginTop: 24, marginBottom: 0 }}>
+                        <Button type="primary" htmlType="submit" loading={creating} block size="large" style={{ borderRadius: 8, height: 48, fontWeight: 600 }}>
                             Create Shipment
                         </Button>
                     </Form.Item>

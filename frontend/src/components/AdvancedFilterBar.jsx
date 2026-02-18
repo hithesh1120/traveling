@@ -14,7 +14,7 @@ const AdvancedFilterBar = ({ onFilter, statusOptions, initialValues }) => {
     const [drivers, setDrivers] = useState([]);
     const [vehicles, setVehicles] = useState([]);
 
-    const isAdminOrFleet = user?.role === 'SUPER_ADMIN' || user?.role === 'FLEET_MANAGER';
+    const isAdminOrFleet = user?.role === 'SUPER_ADMIN';
 
     useEffect(() => {
         if (isAdminOrFleet && token) {

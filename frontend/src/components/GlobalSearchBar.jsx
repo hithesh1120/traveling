@@ -55,7 +55,6 @@ const GlobalSearchBar = () => {
         switch (user?.role) {
             case 'SUPER_ADMIN': return '/admin';
             case 'MSME': return '/msme';
-            case 'FLEET_MANAGER': return '/fleet';
             case 'DRIVER': return '/driver';
             default: return '/';
         }
@@ -256,7 +255,6 @@ const GlobalSearchBar = () => {
             navigate(`${prefix}/shipments/${option.item.id}`);
         } else if (option.type === 'driver') {
             if (user.role === 'SUPER_ADMIN') navigate(`/admin/users`);
-            else if (user.role === 'FLEET_MANAGER') navigate(`/fleet/analytics`);
         } else if (option.type === 'vehicle') {
             navigate(`${prefix}/vehicles`);
         }

@@ -46,6 +46,9 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
     
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Incorrect username or password")
+        
+    if not user.is_active:
+        raise HTTPException(status_code=400, detail="Account is inactive. Please contact your administrator.")
     
     access_token = create_access_token(data={"sub": user.email, "role": user.role})
     return {"access_token": access_token, "token_type": "bearer"}
@@ -412,6 +415,10 @@ async def update_user_status(
     user = result.scalars().first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+        
+    # Protect Root Admin only
+    if user.email == "admin@example.com":
+        raise HTTPException(status_code=403, detail="Cannot change status of Root Admin")
     
     user.is_active = is_active
     await db.commit()
@@ -604,7 +611,7 @@ async def create_shipment(
     db: AsyncSession = Depends(get_db),
     user: models.User = Depends(get_current_user)
 ):
-    if user.role not in [models.UserRole.MSME, models.UserRole.SUPER_ADMIN, models.UserRole.FLEET_MANAGER]:
+    if user.role not in [models.UserRole.MSME, models.UserRole.SUPER_ADMIN]:
         raise HTTPException(403, "Only MSME users or admins can create shipments")
 
     shipment = models.Shipment(
@@ -647,6 +654,12 @@ async def create_shipment(
     # Add timeline entry
     await add_timeline_entry(db, shipment.id, models.ShipmentStatus.PENDING, user.id, "Shipment created")
     await create_audit_log(db, user.id, "SHIPMENT_CREATED", "SHIPMENT", shipment.id, f"Shipment {shipment.tracking_number} created")
+    
+    # Notify Admins
+    admins_result = await db.execute(select(models.User).where(models.User.role == models.UserRole.SUPER_ADMIN))
+    admins = admins_result.scalars().all()
+    for admin in admins:
+        await create_notification(db, admin.id, "SHIPMENT", "New Shipment Created", f"New shipment {shipment.tracking_number} created by {user.name}")
 
     await db.commit()
     await db.refresh(shipment)
@@ -714,9 +727,9 @@ async def global_search(
     ship_results = await db.execute(ship_query.limit(10))
     shipments = ship_results.scalars().all()
 
-    # 2. Drivers (Admin/Ops only)
+    # 2. Drivers (Admin only)
     drivers = []
-    if user.role in [models.UserRole.SUPER_ADMIN, models.UserRole.FLEET_MANAGER]:
+    if user.role == models.UserRole.SUPER_ADMIN:
         driver_query = select(models.User).where(
             models.User.role == models.UserRole.DRIVER,
             or_(
@@ -729,9 +742,9 @@ async def global_search(
         drv_results = await db.execute(driver_query.limit(5))
         drivers = drv_results.scalars().all()
 
-    # 3. Vehicles (Admin/Ops only)
+    # 3. Vehicles (Admin only)
     vehicles = []
-    if user.role in [models.UserRole.SUPER_ADMIN, models.UserRole.FLEET_MANAGER]:
+    if user.role == models.UserRole.SUPER_ADMIN:
         veh_query = select(models.Vehicle).where(or_(
             models.Vehicle.plate_number.ilike(search_term),
             models.Vehicle.name.ilike(search_term)
@@ -896,8 +909,8 @@ async def auto_dispatch_shipment(
     user: models.User = Depends(get_current_user)
 ):
     """Auto-dispatch: Zone Match → Vehicle Capacity Check → Driver Assignment"""
-    if user.role not in [models.UserRole.SUPER_ADMIN, models.UserRole.FLEET_MANAGER]:
-        raise HTTPException(403, "Only admin/fleet manager can dispatch")
+    if user.role != models.UserRole.SUPER_ADMIN:
+        raise HTTPException(403, "Only admin can dispatch")
 
     result = await db.execute(
         select(models.Shipment).options(selectinload(models.Shipment.items))
@@ -1042,7 +1055,7 @@ async def manual_assign_shipment(
     user: models.User = Depends(get_current_user)
 ):
     """Manual admin override assignment"""
-    if user.role not in [models.UserRole.SUPER_ADMIN, models.UserRole.FLEET_MANAGER]:
+    if user.role != models.UserRole.SUPER_ADMIN:
         raise HTTPException(403, "Not authorized")
 
     result = await db.execute(select(models.Shipment).where(models.Shipment.id == id))
@@ -1265,6 +1278,12 @@ async def confirm_receipt(
     await add_timeline_entry(db, shipment.id, models.ShipmentStatus.CONFIRMED, user.id, "Receipt confirmed")
     await create_audit_log(db, user.id, "RECEIPT_CONFIRMED", "SHIPMENT", shipment.id, f"Receipt for {shipment.tracking_number} confirmed")
 
+    # Notify Admins
+    admins_result = await db.execute(select(models.User).where(models.User.role.in_([models.UserRole.SUPER_ADMIN, models.UserRole.FLEET_MANAGER])))
+    admins = admins_result.scalars().all()
+    for admin in admins:
+        await create_notification(db, admin.id, "SHIPMENT", "Shipment Confirmed", f"Shipment {shipment.tracking_number} confirmed by receiver")
+
     await db.commit()
     result = await db.execute(
         select(models.Shipment).options(selectinload(models.Shipment.items), selectinload(models.Shipment.timeline).selectinload(models.ShipmentTimeline.updated_by), selectinload(models.Shipment.assigned_vehicle), selectinload(models.Shipment.assigned_driver))
@@ -1367,7 +1386,7 @@ async def create_vehicle(
     db: AsyncSession = Depends(get_db),
     user: models.User = Depends(get_current_user)
 ):
-    if user.role not in [models.UserRole.SUPER_ADMIN, models.UserRole.FLEET_MANAGER]:
+    if user.role != models.UserRole.SUPER_ADMIN:
         raise HTTPException(403, "Not authorized")
 
     # Check unique plate
@@ -1428,7 +1447,7 @@ async def update_vehicle(
     db: AsyncSession = Depends(get_db),
     user: models.User = Depends(get_current_user)
 ):
-    if user.role not in [models.UserRole.SUPER_ADMIN, models.UserRole.FLEET_MANAGER]:
+    if user.role != models.UserRole.SUPER_ADMIN:
         raise HTTPException(403, "Not authorized")
 
     result = await db.execute(select(models.Vehicle).where(models.Vehicle.id == id))
@@ -1456,7 +1475,7 @@ async def fleet_stats(
     db: AsyncSession = Depends(get_db),
     user: models.User = Depends(get_current_user)
 ):
-    if user.role not in [models.UserRole.SUPER_ADMIN, models.UserRole.FLEET_MANAGER]:
+    if user.role != models.UserRole.SUPER_ADMIN:
         raise HTTPException(403, "Not authorized")
 
     total_result = await db.execute(select(func.count(models.Vehicle.id)))
@@ -1513,7 +1532,7 @@ async def create_zone(
     db: AsyncSession = Depends(get_db),
     user: models.User = Depends(get_current_user)
 ):
-    if user.role not in [models.UserRole.SUPER_ADMIN, models.UserRole.FLEET_MANAGER]:
+    if user.role != models.UserRole.SUPER_ADMIN:
         raise HTTPException(403, "Not authorized")
 
     zone = models.Zone(
@@ -1544,7 +1563,7 @@ async def update_zone(
     db: AsyncSession = Depends(get_db),
     user: models.User = Depends(get_current_user)
 ):
-    if user.role not in [models.UserRole.SUPER_ADMIN, models.UserRole.FLEET_MANAGER]:
+    if user.role != models.UserRole.SUPER_ADMIN:
         raise HTTPException(403, "Not authorized")
 
     result = await db.execute(select(models.Zone).where(models.Zone.id == id))
@@ -1566,7 +1585,7 @@ async def delete_zone(
     db: AsyncSession = Depends(get_db),
     user: models.User = Depends(get_current_user)
 ):
-    if user.role not in [models.UserRole.SUPER_ADMIN, models.UserRole.FLEET_MANAGER]:
+    if user.role != models.UserRole.SUPER_ADMIN:
         raise HTTPException(403, "Not authorized")
 
     result = await db.execute(select(models.Zone).where(models.Zone.id == id))
@@ -1926,7 +1945,7 @@ async def operations_dashboard(
     db: AsyncSession = Depends(get_db),
     user: models.User = Depends(get_current_user)
 ):
-    if user.role not in [models.UserRole.SUPER_ADMIN, models.UserRole.FLEET_MANAGER]:
+    if user.role != models.UserRole.SUPER_ADMIN:
         raise HTTPException(403, "Not authorized")
 
     # Active shipments as list of objects
@@ -1996,6 +2015,157 @@ async def operations_dashboard(
     }
 
 
+
+# ===============================
+# ANALYTICS ENDPOINTS
+# ===============================
+
+@app.get("/analytics/fleet", response_model=schemas.AnalyticsFleetResponse)
+async def get_fleet_analytics(
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    # Total Vehicles
+    res_total = await db.execute(select(func.count(models.Vehicle.id)))
+    total = res_total.scalar() or 0
+    
+    # Available
+    res_avail = await db.execute(select(func.count(models.Vehicle.id)).where(models.Vehicle.status == models.VehicleStatus.AVAILABLE))
+    available = res_avail.scalar() or 0
+    
+    # On Trip
+    res_trip = await db.execute(select(func.count(models.Vehicle.id)).where(models.Vehicle.status == models.VehicleStatus.ON_TRIP))
+    on_trip = res_trip.scalar() or 0
+    
+    # Maintenance
+    res_maint = await db.execute(select(func.count(models.Vehicle.id)).where(models.Vehicle.status == models.VehicleStatus.MAINTENANCE))
+    maintenance = res_maint.scalar() or 0
+    
+    utilization = 0.0
+    if total > 0:
+        utilization = round((on_trip / total) * 100, 1)
+        
+    return {
+        "total_vehicles": total,
+        "available": available,
+        "on_trip": on_trip,
+        "maintenance": maintenance,
+        "utilization_rate": utilization
+    }
+
+@app.get("/analytics/shipments", response_model=schemas.AnalyticsShipmentResponse)
+async def get_shipment_analytics(
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    # Total
+    res_total = await db.execute(select(func.count(models.Shipment.id)))
+    total = res_total.scalar() or 0
+    
+    # Pending
+    res_pending = await db.execute(select(func.count(models.Shipment.id)).where(models.Shipment.status == models.ShipmentStatus.PENDING))
+    pending = res_pending.scalar() or 0
+    
+    # Active (Assigned, In Transit, Out for Delivery)
+    active_statuses = [
+        models.ShipmentStatus.ASSIGNED,
+        models.ShipmentStatus.IN_TRANSIT,
+        models.ShipmentStatus.OUT_FOR_DELIVERY
+    ]
+    res_active = await db.execute(select(func.count(models.Shipment.id)).where(models.Shipment.status.in_(active_statuses)))
+    active = res_active.scalar() or 0
+    
+    # Delivered
+    res_delivered = await db.execute(select(func.count(models.Shipment.id)).where(models.Shipment.status == models.ShipmentStatus.DELIVERED))
+    delivered = res_delivered.scalar() or 0
+    
+    # Confirmed - mapping to Delivered for now or 0
+    confirmed = delivered
+
+    # Today's shipments
+    today_start = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    res_today = await db.execute(select(func.count(models.Shipment.id)).where(models.Shipment.created_at >= today_start))
+    today_count = res_today.scalar() or 0
+    
+    # Completion Rate (Delivered / Total)
+    rate = 0.0
+    if total > 0:
+        rate = round((delivered / total) * 100, 1)
+
+    # Chart Data (Last 7 days volume)
+    chart_data = []
+    for i in range(6, -1, -1):
+        d = datetime.date.today() - datetime.timedelta(days=i)
+        d_start = datetime.datetime.combine(d, datetime.time.min)
+        d_end = datetime.datetime.combine(d, datetime.time.max)
+        
+        res_day = await db.execute(select(func.count(models.Shipment.id)).where(
+            models.Shipment.created_at >= d_start,
+            models.Shipment.created_at <= d_end
+        ))
+        count = res_day.scalar() or 0
+        chart_data.append({"date": d.strftime("%Y-%m-%d"), "count": count})
+
+    return {
+        "total": total,
+        "pending": pending,
+        "active": active,
+        "delivered": delivered,
+        "confirmed": confirmed,
+        "today": today_count,
+        "completion_rate": rate,
+        "chart_data": chart_data
+    }
+
+@app.get("/analytics/drivers", response_model=List[schemas.AnalyticsDriverResponse])
+async def get_driver_analytics(
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    # Get all drivers
+    res_drivers = await db.execute(select(models.User).where(models.User.role == models.UserRole.DRIVER))
+    drivers = res_drivers.scalars().all()
+    
+    analytics = []
+    for d in drivers:
+        # Total Shipments
+        res_total = await db.execute(select(func.count(models.Shipment.id)).where(models.Shipment.driver_id == d.id))
+        total = res_total.scalar() or 0
+        
+        # Completed
+        res_comp = await db.execute(select(func.count(models.Shipment.id)).where(
+            models.Shipment.driver_id == d.id,
+            models.Shipment.status == models.ShipmentStatus.DELIVERED
+        ))
+        completed = res_comp.scalar() or 0
+        
+        # Active
+        active_statuses = [
+            models.ShipmentStatus.ASSIGNED,
+            models.ShipmentStatus.IN_TRANSIT,
+            models.ShipmentStatus.OUT_FOR_DELIVERY
+        ]
+        res_active = await db.execute(select(func.count(models.Shipment.id)).where(
+            models.Shipment.driver_id == d.id,
+            models.Shipment.status.in_(active_statuses)
+        ))
+        active = res_active.scalar() or 0
+        
+        analytics.append({
+            "driver_id": d.id,
+            "name": d.name,
+            "email": d.email,
+            "total_shipments": total,
+            "completed": completed,
+            "active": active
+        })
+        
+    # Sort by total shipments desc
+    analytics.sort(key=lambda x: x["total_shipments"], reverse=True)
+    
+    return analytics
+
+
 # ===============================
 # EXPORT : SHIPMENTS CSV
 # ===============================
@@ -2007,7 +2177,7 @@ async def export_shipments_csv(
     db: AsyncSession = Depends(get_db),
     user: models.User = Depends(get_current_user)
 ):
-    if user.role not in [models.UserRole.SUPER_ADMIN, models.UserRole.FLEET_MANAGER]:
+    if user.role != models.UserRole.SUPER_ADMIN:
         raise HTTPException(403, "Not authorized")
 
     query = select(models.Shipment)
@@ -2069,3 +2239,258 @@ async def autocomplete_locations(
     
     locations = set([r for r in res_pickup.scalars().all()] + [r for r in res_drop.scalars().all()])
     return list(locations)[:limit]
+
+
+# ===============================
+# OPERATIONS DASHBOARD
+# ===============================
+
+@app.get("/operations/dashboard")
+async def operations_dashboard(
+    db: AsyncSession = Depends(get_db),
+    user: models.User = Depends(get_current_user)
+):
+    """
+    Returns active shipments, vehicle status breakdown, and zone activity.
+    """
+    if user.role not in [models.UserRole.SUPER_ADMIN, models.UserRole.WAREHOUSE_OPS, models.UserRole.GATE_SECURITY]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    # 1. Active Shipments (Detailed for Dashboard Table)
+    # Status: ASSIGNED, PICKED_UP, IN_TRANSIT
+    active_statuses = [
+        models.ShipmentStatus.ASSIGNED, 
+        models.ShipmentStatus.PICKED_UP, 
+        models.ShipmentStatus.IN_TRANSIT
+    ]
+    
+    res_active = await db.execute(
+        select(models.Shipment)
+        .options(
+            selectinload(models.Shipment.assigned_vehicle),
+            selectinload(models.Shipment.assigned_driver),
+            selectinload(models.Shipment.items)
+        )
+        .where(models.Shipment.status.in_(active_statuses))
+        .order_by(models.Shipment.updated_at.desc())
+        .limit(20)
+    )
+    active_shipments = res_active.scalars().all()
+
+    # 2. Vehicle Status Counts
+    # Group by status
+    res_vehicles = await db.execute(
+        select(models.Vehicle.status, func.count(models.Vehicle.id))
+        .group_by(models.Vehicle.status)
+    )
+    v_stats = res_vehicles.all()
+    
+    # Initialize defaults
+    vehicle_status = {
+        "available": 0,
+        "on_trip": 0,
+        "maintenance": 0,
+        "inactive": 0
+    }
+    
+    # Map results (ENUM values might be uppercase)
+    for status_enum, count in v_stats:
+        status_key = status_enum.value.lower() # e.g. "available"
+        if status_key in vehicle_status:
+           vehicle_status[status_key] = count
+        elif status_key == "on_trip": # Handle if enum is ON_TRIP
+           vehicle_status["on_trip"] = count
+
+    # 3. Zone Activity
+    # Zones with active vehicles or active shipments
+    res_zones = await db.execute(select(models.Zone).where(models.Zone.status == models.ZoneStatus.ACTIVE))
+    zones = res_zones.scalars().all()
+    
+    zone_activity = []
+    for z in zones:
+        # Count vehicles currently in this zone
+        # (Assuming Vehicle model has zone_id updated by tracking)
+        res_v = await db.execute(
+            select(func.count(models.Vehicle.id))
+            .where(models.Vehicle.zone_id == z.id)
+        )
+        v_count = res_v.scalar() or 0
+        
+        # Count shipments assigned to this zone (as destination or origin?)
+        # Let's say shipments currently IN_TRANSIT to this zone (drop_address zone logic usually)
+        # For simplicity, shipments expliclity assigned to zone_id
+        res_s = await db.execute(
+            select(func.count(models.Shipment.id))
+            .where(
+                models.Shipment.zone_id == z.id, 
+                models.Shipment.status.in_([models.ShipmentStatus.PENDING, models.ShipmentStatus.ASSIGNED, models.ShipmentStatus.IN_TRANSIT])
+            )
+        )
+        s_count = res_s.scalar() or 0
+        
+        if v_count > 0 or s_count > 0:
+            zone_activity.append({
+                "zone_id": z.id,
+                "zone_name": z.name,
+                "color": z.color,
+                "vehicle_count": v_count,
+                "active_shipments": s_count
+            })
+
+    return {
+        "active_shipments": active_shipments,
+        "vehicle_status": vehicle_status,
+        "zone_activity": zone_activity
+    }
+
+
+@app.get("/admin/alerts")
+async def get_admin_alerts(
+    db: AsyncSession = Depends(get_db),
+    user: models.User = Depends(get_current_user)
+):
+    if user.role not in [models.UserRole.SUPER_ADMIN, models.UserRole.WAREHOUSE_OPS]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    # 1. Delayed Shipments
+    # Definition: Status PENDING for > 24 hours
+    threshold = datetime.datetime.utcnow() - datetime.timedelta(hours=24)
+    
+    res_delayed = await db.execute(
+        select(models.Shipment)
+        .options(selectinload(models.Shipment.sender))
+        .where(
+            models.Shipment.status == models.ShipmentStatus.PENDING,
+            models.Shipment.created_at < threshold
+        )
+        .order_by(models.Shipment.created_at.asc())
+        .limit(10)
+    )
+    delayed_shipments = res_delayed.scalars().all()
+    
+    # 2. Capacity Warnings (Placeholder)
+    # Could check if warehouse is > 90% full, but we don't have that model yet.
+    capacity_warnings = []
+
+    return {
+        "delayed_shipments": delayed_shipments,
+        "capacity_warnings": capacity_warnings
+    }
+
+# ===============================
+# ANALYTICS ENDPOINTS
+# ===============================
+
+@app.get("/analytics/fleet", response_model=schemas.AnalyticsFleetResponse)
+async def get_fleet_analytics(
+    db: AsyncSession = Depends(get_db),
+    user: models.User = Depends(get_current_user)
+):
+    print("--- ENTERING FLEET ANALYTICS ---")
+    if user.role not in [models.UserRole.SUPER_ADMIN, models.UserRole.WAREHOUSE_OPS]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+        
+    res = await db.execute(
+        select(models.Vehicle.status, func.count(models.Vehicle.id))
+        .group_by(models.Vehicle.status)
+    )
+    stats = dict(res.all())
+    
+    total = sum(stats.values())
+    # Enum handling: stats keys are Enum objects
+    available = 0
+    on_trip = 0
+    maintenance = 0
+    
+    for k, v in stats.items():
+        if k == models.VehicleStatus.AVAILABLE:
+            available = v
+        elif k == models.VehicleStatus.ON_TRIP:
+            on_trip = v
+        elif k == models.VehicleStatus.MAINTENANCE:
+            maintenance = v
+            
+    utilization = round((on_trip / total * 100), 1) if total > 0 else 0.0
+    
+    return {
+        "total_vehicles": total,
+        "available": available,
+        "on_trip": on_trip,
+        "maintenance": maintenance,
+        "utilization_rate": utilization
+    }
+
+@app.get("/analytics/shipments", response_model=schemas.AnalyticsShipmentResponse)
+async def get_shipment_analytics(
+    db: AsyncSession = Depends(get_db),
+    user: models.User = Depends(get_current_user)
+):
+    print("--- ENTERING SHIPMENT ANALYTICS ---")
+    if user.role not in [models.UserRole.SUPER_ADMIN, models.UserRole.WAREHOUSE_OPS]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+        
+    # Totals
+    res_status = await db.execute(
+        select(models.Shipment.status, func.count(models.Shipment.id))
+        .group_by(models.Shipment.status)
+    )
+    status_counts = dict(res_status.all())
+    
+    total = sum(status_counts.values())
+    pending = status_counts.get(models.ShipmentStatus.PENDING, 0)
+    # Active = In Transit + Assigned + Picked Up
+    active = (
+        status_counts.get(models.ShipmentStatus.IN_TRANSIT, 0) + 
+        status_counts.get(models.ShipmentStatus.ASSIGNED, 0) + 
+        status_counts.get(models.ShipmentStatus.PICKED_UP, 0)
+    )
+    delivered = status_counts.get(models.ShipmentStatus.DELIVERED, 0)
+    confirmed = status_counts.get(models.ShipmentStatus.CONFIRMED, 0)
+    
+    # Today's Shipments
+    today = datetime.datetime.utcnow().date()
+    start_of_day = datetime.datetime.combine(today, datetime.time.min)
+    
+    res_today = await db.execute(
+        select(func.count(models.Shipment.id))
+        .where(models.Shipment.created_at >= start_of_day)
+    )
+    today_count = res_today.scalar() or 0
+    
+    # Completion Rate
+    completion_rate = round(((delivered + confirmed) / total * 100), 1) if total > 0 else 0.0
+    
+    # Chart Data (Last 7 Days)
+    chart_data = []
+    for i in range(6, -1, -1):
+        day = today - datetime.timedelta(days=i)
+        day_start = datetime.datetime.combine(day, datetime.time.min)
+        day_end = datetime.datetime.combine(day, datetime.time.max)
+        
+        res_day = await db.execute(
+            select(func.count(models.Shipment.id))
+            .where(
+                models.Shipment.created_at >= day_start,
+                models.Shipment.created_at <= day_end
+            )
+        )
+        count = res_day.scalar() or 0
+        chart_data.append({"date": day.strftime("%Y-%m-%d"), "count": count})
+        
+    return {
+        "total": total,
+        "pending": pending,
+        "active": active,
+        "delivered": delivered,
+        "confirmed": confirmed,
+        "today": today_count,
+        "completion_rate": completion_rate,
+        "chart_data": chart_data
+    }
+
+@app.get("/analytics/drivers")
+async def get_driver_analytics(
+    db: AsyncSession = Depends(get_db)
+):
+    print(f"USER ROLE: Skipping auth")
+    return []

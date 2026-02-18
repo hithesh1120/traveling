@@ -30,14 +30,14 @@ export default function MyShipments() {
     const location = useLocation();
     const [shipments, setShipments] = useState([]);
     const [loading, setLoading] = useState(true);
-    
+
     // Initialize filters from URL params
     const [filters, setFilters] = useState(() => {
         const params = new URLSearchParams(window.location.search);
         const status = params.get('status');
         return status ? { status: [status] } : {};
     });
-    
+
     // Bulk Assignment State
     const [selectedRowKeys, setSelectedRowKeys] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -46,7 +46,7 @@ export default function MyShipments() {
     const [assigning, setAssigning] = useState(false);
 
     const headers = { Authorization: `Bearer ${token}` };
-    const basePath = user?.role === 'MSME' ? '/msme' : user?.role === 'DRIVER' ? '/driver' : user?.role === 'FLEET_MANAGER' ? '/fleet' : '/admin';
+    const basePath = user?.role === 'MSME' ? '/msme' : user?.role === 'DRIVER' ? '/driver' : '/admin';
 
     const fetchShipments = useCallback(async (currentFilters = {}) => {
         setLoading(true);
@@ -76,7 +76,7 @@ export default function MyShipments() {
     }, [token]);
 
     const fetchVehicles = useCallback(async () => {
-        if (['SUPER_ADMIN', 'FLEET_MANAGER'].includes(user?.role)) {
+        if (['SUPER_ADMIN'].includes(user?.role)) {
             try {
                 const res = await axios.get(`${API}/vehicles`, { headers });
                 setVehicles(res.data);
@@ -89,7 +89,7 @@ export default function MyShipments() {
     useEffect(() => {
         fetchShipments(filters);
         fetchVehicles();
-    }, [fetchShipments, fetchVehicles]); 
+    }, [fetchShipments, fetchVehicles]);
 
     const onSelectChange = (newSelectedRowKeys) => {
         setSelectedRowKeys(newSelectedRowKeys);
@@ -137,7 +137,7 @@ export default function MyShipments() {
 
             if (successCount > 0) message.success(`Successfully assigned ${successCount} shipments`);
             if (failCount > 0) message.error(`Failed to assign ${failCount} shipments`);
-            
+
             setIsModalOpen(false);
             setSelectedRowKeys([]);
             setSelectedVehicle(null);
@@ -205,7 +205,7 @@ export default function MyShipments() {
 
             />
 
-            {['SUPER_ADMIN', 'FLEET_MANAGER'].includes(user?.role) && selectedRowKeys.length > 0 && (
+            {['SUPER_ADMIN'].includes(user?.role) && selectedRowKeys.length > 0 && (
                 <div style={{ marginBottom: 16, padding: '8px 16px', background: '#fff2f0', border: '1px solid #ffccc7', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span style={{ color: '#a8071a', fontWeight: 500 }}>Selected {selectedRowKeys.length} items</span>
                     <Button type="primary" danger onClick={() => setIsModalOpen(true)}>
@@ -216,7 +216,7 @@ export default function MyShipments() {
 
             <Card bordered={false} bodyStyle={{ padding: 0 }}>
                 <Table
-                    rowSelection={['SUPER_ADMIN', 'FLEET_MANAGER'].includes(user?.role) ? rowSelection : undefined}
+                    rowSelection={['SUPER_ADMIN'].includes(user?.role) ? rowSelection : undefined}
                     columns={columns}
                     dataSource={shipments}
                     rowKey="id"

@@ -15,7 +15,6 @@ import MSMEDashboard from './pages/MSMEDashboard';
 import MyShipments from './pages/MyShipments';
 import ShipmentDetail from './pages/ShipmentDetail';
 import DriverDashboard from './pages/DriverDashboard';
-import FleetDashboard from './pages/FleetDashboard';
 import VehicleManagement from './pages/VehicleManagement';
 import ZoneManagement from './pages/ZoneManagement';
 import OperationsMonitor from './pages/OperationsMonitor';
@@ -24,6 +23,7 @@ import Settings from './pages/Settings';
 import DriverHistory from './pages/DriverHistory';
 import SavedLocations from './pages/SavedLocations';
 import RouteTracking from './pages/RouteTracking';
+import Notifications from './pages/Notifications';
 
 import DeliveryReceipt from './pages/DeliveryReceipt';
 import CargoVisualizer from './pages/CargoVisualizer';
@@ -35,10 +35,30 @@ function App() {
     <ConfigProvider
       theme={{
         token: {
-          colorPrimary: '#ff4d4f',
-          colorLink: '#ff4d4f',
-          borderRadius: 8,
+          colorPrimary: '#4F46E5', // Indigo-600
+          colorLink: '#4F46E5',
+          borderRadius: 6, // Sharper, professional look (down from 8)
+          fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+          colorTextHeading: '#0F172A', // Slate-900
+          colorText: '#334155',        // Slate-700
+          colorBgLayout: '#F8FAFC',    // Slate-50
+          colorBorder: '#E2E8F0',      // Slate-200
         },
+        components: {
+          Card: {
+            boxShadowTertiary: 'none', // Remove default heavy shadows
+            colorBorderSecondary: '#E2E8F0',
+          },
+          Layout: {
+            bodyBg: '#F8FAFC',
+            headerBg: '#FFFFFF',
+            siderBg: '#FFFFFF',
+          },
+          Menu: {
+            itemSelectedBg: '#EEF2FF', // Indigo-50
+            itemSelectedColor: '#4F46E5', // Indigo-600
+          }
+        }
       }}
     >
       <AuthProvider>
@@ -68,6 +88,7 @@ function App() {
                       <Route path="track/:id" element={<RouteTracking />} />
                       <Route path="cargo-3d" element={<CargoVisualizer />} />
                       <Route path="settings" element={<Settings />} />
+                      <Route path="notifications" element={<Notifications />} />
                     </Routes>
                   </AppLayout>
                 </ProtectedRoute>
@@ -84,6 +105,7 @@ function App() {
                       <Route path="shipments/:id" element={<ShipmentDetail />} />
                       <Route path="track/:id" element={<RouteTracking />} />
                       <Route path="settings" element={<Settings />} />
+                      <Route path="notifications" element={<Notifications />} />
                     </Routes>
                   </AppLayout>
                 </ProtectedRoute>
@@ -99,27 +121,7 @@ function App() {
                       <Route path="track/:id" element={<RouteTracking />} />
                       <Route path="history" element={<DriverHistory />} />
                       <Route path="settings" element={<Settings />} />
-                    </Routes>
-                  </AppLayout>
-                </ProtectedRoute>
-              } />
-
-              {/* FLEET MANAGER ROUTES */}
-              <Route path="/fleet/*" element={
-                <ProtectedRoute role="FLEET_MANAGER">
-                  <AppLayout>
-                    <Routes>
-                      <Route path="/" element={<FleetDashboard />} />
-                      <Route path="vehicles" element={<VehicleManagement />} />
-                      <Route path="zones" element={<ZoneManagement />} />
-                      <Route path="operations" element={<OperationsMonitor />} />
-                      <Route path="analytics" element={<Analytics />} />
-                      <Route path="reports" element={<Reports />} />
-                      <Route path="shipments" element={<MyShipments />} />
-                      <Route path="shipments/:id" element={<ShipmentDetail />} />
-                      <Route path="track/:id" element={<RouteTracking />} />
-                      <Route path="cargo-3d" element={<CargoVisualizer />} />
-                      <Route path="settings" element={<Settings />} />
+                      <Route path="notifications" element={<Notifications />} />
                     </Routes>
                   </AppLayout>
                 </ProtectedRoute>

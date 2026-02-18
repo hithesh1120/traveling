@@ -69,7 +69,7 @@ export default function ShipmentDetail() {
     if (!shipment) return <div style={{ textAlign: 'center', padding: 80 }}><Text type="secondary">Shipment not found</Text></div>;
 
     const isDriver = user?.role === 'DRIVER';
-    const isAdmin = ['SUPER_ADMIN', 'FLEET_MANAGER'].includes(user?.role);
+    const isAdmin = ['SUPER_ADMIN'].includes(user?.role);
     const isSender = user?.role === 'MSME';
 
     return (
@@ -160,7 +160,7 @@ export default function ShipmentDetail() {
                             </Descriptions.Item>
                             {shipment.assigned_at && <Descriptions.Item label="Assigned">{new Date(shipment.assigned_at).toLocaleString()}</Descriptions.Item>}
                             {shipment.delivered_at && <Descriptions.Item label="Delivered">{new Date(shipment.delivered_at).toLocaleString()}</Descriptions.Item>}
-                             <Descriptions.Item label="Special Instructions">{shipment.special_instructions || '-'}</Descriptions.Item>
+                            <Descriptions.Item label="Special Instructions">{shipment.special_instructions || '-'}</Descriptions.Item>
                         </Descriptions>
                     </Card>
                 </Col>
@@ -176,7 +176,7 @@ export default function ShipmentDetail() {
                             scroll={{ x: 'max-content' }}
                             columns={[
                                 { title: 'Tracking #', dataIndex: 'tracking_number', key: 'tracking' },
-                                { title: 'Status', dataIndex: 'status', key: 'status', render: text => text }, 
+                                { title: 'Status', dataIndex: 'status', key: 'status', render: text => text },
                                 { title: 'Created', dataIndex: 'created_at', key: 'created', render: d => new Date(d).toLocaleString() },
                                 { title: 'Total Weight', dataIndex: 'total_weight', key: 'weight', render: v => `${v} kg` },
                                 { title: 'Total Volume', dataIndex: 'total_volume', key: 'volume', render: v => `${v} m³` },
@@ -194,7 +194,7 @@ export default function ShipmentDetail() {
 
                 {/* 3. Items (Full Width) */}
                 <Col span={24}>
-                     {shipment.items?.length > 0 ? (
+                    {shipment.items?.length > 0 ? (
                         <Card title={`Items (${shipment.items.length})`} bordered={false}>
                             <Row gutter={[16, 16]}>
                                 {shipment.items.map((item, i) => (
@@ -202,7 +202,7 @@ export default function ShipmentDetail() {
                                         <Card type="inner" size="small" style={{ background: '#fafafa' }}>
                                             <div style={{ fontWeight: 600, marginBottom: 4 }}>{item.name}</div>
                                             <div style={{ fontSize: 13, color: '#666' }}>
-                                                Qty: {item.quantity} <br/>
+                                                Qty: {item.quantity} <br />
                                                 Weight: {item.weight} kg
                                             </div>
                                             {item.description && <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>{item.description}</div>}
