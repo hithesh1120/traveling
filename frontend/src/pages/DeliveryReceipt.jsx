@@ -78,9 +78,9 @@ export default function DeliveryReceipt() {
                     </Col>
                     <Col span={12}>
                         <Title level={5}>TO (RECEIVER)</Title>
-                        <Text strong>{receipt.receiver_name}</Text><br />
+                        <Text strong>{receipt?.receiver_name || 'N/A'}</Text><br />
                         <Text>{shipment.drop_address}</Text><br />
-                        <Text>{receipt.receiver_phone || shipment.drop_phone}</Text>
+                        <Text>{receipt?.receiver_phone || shipment.drop_phone}</Text>
                     </Col>
                 </Row>
 
@@ -90,15 +90,15 @@ export default function DeliveryReceipt() {
                 <Row gutter={[24, 24]}>
                     <Col span={8}>
                         <Text type="secondary">Delivered At</Text><br />
-                        <Text strong>{new Date(shipment.delivered_at).toLocaleString()}</Text>
+                        <Text strong>{shipment.delivered_at ? new Date(shipment.delivered_at).toLocaleString() : 'N/A'}</Text>
                     </Col>
                     <Col span={8}>
                         <Text type="secondary">Vehicle</Text><br />
-                        <Text strong>{assigned_vehicle?.plate_number} ({assigned_vehicle?.name})</Text>
+                        <Text strong>{assigned_vehicle ? `${assigned_vehicle.plate_number} (${assigned_vehicle.name})` : 'N/A'}</Text>
                     </Col>
                     <Col span={8}>
                         <Text type="secondary">Driver</Text><br />
-                        <Text strong>{assigned_driver?.name} (ID: {assigned_driver?.id})</Text>
+                        <Text strong>{assigned_driver ? `${assigned_driver.name} (ID: ${assigned_driver.id})` : 'N/A'}</Text>
                     </Col>
                 </Row>
 
@@ -115,7 +115,7 @@ export default function DeliveryReceipt() {
                         </tr>
                     </thead>
                     <tbody>
-                        {items.map(item => (
+                        {items && items.map(item => (
                             <tr key={item.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
                                 <td style={{ padding: 8 }}>{item.name} <br /><Text type="secondary" style={{ fontSize: 12 }}>{item.description}</Text></td>
                                 <td style={{ textAlign: 'right', padding: 8 }}>{item.quantity}</td>
@@ -126,7 +126,7 @@ export default function DeliveryReceipt() {
                     <tfoot>
                         <tr>
                             <td style={{ padding: 8, fontWeight: 'bold' }}>TOTAL</td>
-                            <td style={{ textAlign: 'right', padding: 8, fontWeight: 'bold' }}>{items.reduce((s, i) => s + i.quantity, 0)}</td>
+                            <td style={{ textAlign: 'right', padding: 8, fontWeight: 'bold' }}>{items ? items.reduce((s, i) => s + i.quantity, 0) : 0}</td>
                             <td style={{ textAlign: 'right', padding: 8, fontWeight: 'bold' }}>{shipment.total_weight} kg</td>
                         </tr>
                     </tfoot>
@@ -137,18 +137,19 @@ export default function DeliveryReceipt() {
                     <Row gutter={16}>
                         <Col span={12}>
                             <Title level={5} style={{ marginTop: 0 }}>Proof of Delivery</Title>
-                            {receipt.photo_url && (
+                            {receipt?.photo_url ? (
                                 <Image
                                     src={receipt.photo_url}
                                     alt="Proof of Delivery"
                                     style={{ maxHeight: 150, borderRadius: 4, border: '1px solid #d9d9d9' }}
                                 />
+                            ) : (
+                                <Text type="secondary">No photo proof provided.</Text>
                             )}
-                            {!receipt.photo_url && <Text type="secondary">No photo proof provided.</Text>}
                         </Col>
                         <Col span={12}>
                             <Title level={5} style={{ marginTop: 0 }}>Notes & Exceptions</Title>
-                            <Text>{receipt.notes || 'No notes provided.'}</Text>
+                            <Text>{receipt?.notes || 'No notes provided.'}</Text>
                         </Col>
                     </Row>
                 </div>

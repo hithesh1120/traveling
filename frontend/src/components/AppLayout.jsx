@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -25,6 +25,7 @@ import {
   BankOutlined,
   CompassOutlined,
   BoxPlotOutlined,
+  CheckOutlined,
 } from '@ant-design/icons';
 
 const { Sider, Content, Header } = Layout;
@@ -34,7 +35,7 @@ const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const ROLE_LABELS = {
   ADMIN: 'Admin',
-  MSME: 'Business (MSME)',
+  MSME: 'User',
   DRIVER: 'Driver',
 };
 
@@ -59,9 +60,7 @@ const getMenuItems = (role) => {
       return [
         { key: '/admin', icon: <DashboardOutlined />, label: <Link to="/admin">Dashboard</Link> },
         { type: 'divider' },
-        { key: '/admin/shipments', icon: <SendOutlined />, label: <Link to="/admin/shipments">Shipments</Link> },
-        { key: '/admin/locations', icon: <EnvironmentOutlined />, label: <Link to="/admin/locations">Saved Locations</Link> },
-        { key: '/admin/vehicles', icon: <CarOutlined />, label: <Link to="/admin/vehicles">Vehicles</Link> },
+        { key: '/admin/operations', icon: <RocketOutlined />, label: <Link to="/admin/operations">Operations</Link> },
         { key: '/admin/analytics', icon: <FundOutlined />, label: <Link to="/admin/analytics">Analytics</Link> },
         { type: 'divider' },
         { key: '/admin/reports', icon: <BarChartOutlined />, label: <Link to="/admin/reports">Reports</Link> },
@@ -72,7 +71,6 @@ const getMenuItems = (role) => {
     case 'MSME':
       return [
         { key: '/msme', icon: <DashboardOutlined />, label: <Link to="/msme">Dashboard</Link> },
-        { key: '/msme/shipments', icon: <SendOutlined />, label: <Link to="/msme/shipments">My Shipments</Link> },
         { type: 'divider' },
         { key: '/msme/settings', icon: <SettingOutlined />, label: <Link to="/msme/settings">Settings</Link> },
       ];
@@ -96,21 +94,69 @@ export default function AppLayout({ children }) {
   const { token: themeToken } = theme.useToken();
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [hasNewNotif, setHasNewNotif] = useState(false);
+  const prevUnreadRef = useRef(0);
 
+  const fetchNotifications = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await axios.get(`${API}/notifications`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = res.data;
+      const newUnread = data.filter(n => !n.read).length;
+
+      // Detect new notifications arriving
+      if (newUnread > prevUnreadRef.current) {
+        setHasNewNotif(true);
+        setTimeout(() => setHasNewNotif(false), 3000);
+      }
+      prevUnreadRef.current = newUnread;
+
+      setNotifications(data.slice(0, 5));
+      setUnreadCount(newUnread);
+    } catch { }
+  }, [token]);
+
+  // Initial fetch + poll every 10 seconds
   useEffect(() => {
-    if (token) {
-      axios.get(`${API}/notifications`, { headers: { Authorization: `Bearer ${token}` } })
-        .then(res => {
-          setNotifications(res.data.slice(0, 5));
-          setUnreadCount(res.data.filter(n => !n.read).length);
-        })
-        .catch(() => { });
-    }
-  }, [token, location.pathname]);
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 10000);
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
 
   const handleLogout = () => {
     logout();
     window.location.href = '/';
+  };
+
+  const handleNotificationClick = async (notification) => {
+    if (!notification.read) {
+      try {
+        await axios.put(`${API}/notifications/${notification.id}/read`, {}, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, read: true } : n));
+        setUnreadCount(prev => Math.max(0, prev - 1));
+        prevUnreadRef.current = Math.max(0, prevUnreadRef.current - 1);
+      } catch (error) {
+        console.error('Failed to mark notification as read:', error);
+      }
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await axios.put(`${API}/notifications/read-all`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      setUnreadCount(0);
+      prevUnreadRef.current = 0;
+    } catch (error) {
+      console.error('Failed to mark all as read:', error);
+    }
   };
 
   const menuItems = getMenuItems(user?.role);
@@ -254,44 +300,91 @@ export default function AppLayout({ children }) {
               />
             </Tooltip>
             <Dropdown
+              open={notifOpen}
+              onOpenChange={setNotifOpen}
               menu={{
-                items: notifications.length > 0 ? [
+                style: { width: 320, maxHeight: 480, overflowY: 'auto' },
+                items: [
                   {
-                    label: <Text type="secondary" style={{ fontSize: 12 }}>Recent Notifications</Text>,
+                    label: (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 0' }}>
+                        <Text type="secondary" style={{ fontSize: 12, fontWeight: 600 }}>NOTIFICATIONS</Text>
+                        {unreadCount > 0 && (
+                          <Button
+                            type="link"
+                            size="small"
+                            icon={<CheckOutlined />}
+                            onClick={(e) => { e.stopPropagation(); handleMarkAllRead(); }}
+                            style={{ fontSize: 11, padding: 0 }}
+                          >
+                            Mark all read
+                          </Button>
+                        )}
+                      </div>
+                    ),
                     key: 'header',
-                    disabled: true
+                    disabled: true,
                   },
                   { type: 'divider' },
-                  ...notifications.map(n => ({
+                  ...(notifications.length > 0 ? notifications.map(n => ({
                     key: n.id,
+                    onClick: () => handleNotificationClick(n),
+                    style: { background: n.read ? 'transparent' : 'rgba(22, 119, 255, 0.04)' },
                     label: (
-                      <div style={{ padding: '8px 0', maxWidth: 250 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Text strong={!n.read} style={{ fontSize: 13 }}>{n.title}</Text>
-                          {!n.read && <Badge status="processing" />}
+                      <div style={{ padding: '6px 0', maxWidth: 280 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                          <Text strong={!n.read} style={{ fontSize: 13, lineHeight: 1.4, flex: 1 }}>{n.title}</Text>
+                          {!n.read && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#1677ff', flexShrink: 0, marginTop: 4, display: 'inline-block' }} />}
                         </div>
-                        <div style={{ fontSize: 12, color: '#8c8c8c', marginTop: 4 }}>{n.message}</div>
-                        <div style={{ fontSize: 10, color: '#bfbfbf', marginTop: 4 }}>
+                        <div style={{ fontSize: 12, color: '#595959', marginTop: 3, lineHeight: 1.4 }}>{n.message}</div>
+                        <div style={{ fontSize: 11, color: '#bfbfbf', marginTop: 4 }}>
                           {new Date(n.created_at).toLocaleString()}
                         </div>
                       </div>
                     ),
-                  })),
+                  })) : [{
+                    key: 'empty',
+                    disabled: true,
+                    label: <div style={{ textAlign: 'center', padding: '16px 0', color: '#bfbfbf' }}>No notifications</div>
+                  }]),
                   { type: 'divider' },
                   {
-                    label: <div style={{ textAlign: 'center', color: '#1890ff' }}>View All</div>,
+                    label: (
+                      <div style={{ textAlign: 'center', color: '#1677ff', fontWeight: 500 }}>
+                        View All Notifications
+                      </div>
+                    ),
                     key: 'view-all',
-                    onClick: () => window.location.href = '/admin/operations'
+                    onClick: () => {
+                      setNotifOpen(false);
+                      const base = user?.role === 'ADMIN' ? '/admin' : user?.role === 'DRIVER' ? '/driver' : '/msme';
+                      navigate(`${base}/notifications`);
+                    }
                   }
-                ] : [{ label: 'No new notifications', key: 'empty', disabled: true }]
+                ]
               }}
               trigger={['click']}
               placement="bottomRight"
             >
-              <div style={{ cursor: 'pointer', padding: '0 8px' }}>
-                <Badge count={unreadCount} size="small" offset={[0, 0]}>
-                  <BellOutlined style={{ fontSize: 18, color: '#595959' }} />
+              <div style={{ cursor: 'pointer', padding: '0 8px', position: 'relative' }}>
+                <Badge count={unreadCount} size="small">
+                  <BellOutlined
+                    style={{
+                      fontSize: 18,
+                      color: '#595959',
+                      animation: hasNewNotif ? 'bellRing 0.5s ease-in-out 3' : 'none',
+                    }}
+                  />
                 </Badge>
+                {hasNewNotif && (
+                  <style>{`
+                    @keyframes bellRing {
+                      0%,100% { transform: rotate(0deg); }
+                      20% { transform: rotate(-15deg); }
+                      60% { transform: rotate(15deg); }
+                    }
+                  `}</style>
+                )}
               </div>
             </Dropdown>
 

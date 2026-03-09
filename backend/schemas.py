@@ -269,6 +269,27 @@ class ZoneResponse(ZoneBase):
     class Config:
         from_attributes = True
 
+# --- Delivery Receipts ---
+class DeliveryReceiptCreate(BaseModel):
+    receiver_name: str
+    receiver_phone: Optional[str] = None
+    photo_url: Optional[str] = None
+    notes: Optional[str] = None
+
+class DeliveryReceiptResponse(BaseModel):
+    id: int
+    shipment_id: int
+    receiver_name: str
+    receiver_phone: Optional[str] = None
+    photo_url: Optional[str] = None
+    notes: Optional[str] = None
+    driver_confirmed: bool = False
+    receiver_confirmed: bool = False
+    received_at: datetime.datetime
+
+    class Config:
+        from_attributes = True
+
 # --- Shipments ---
 class ShipmentItemBase(BaseModel):
     name: str
@@ -358,6 +379,7 @@ class ShipmentResponse(BaseModel):
     timeline: List[ShipmentTimelineResponse] = []
     assigned_vehicle: Optional[VehicleResponse] = None
     assigned_driver: Optional[UserResponse] = None
+    receipt: 'Optional[DeliveryReceiptResponse]' = None
 
     class Config:
         from_attributes = True
@@ -370,27 +392,6 @@ class DispatchRequest(BaseModel):
 class AssignRequest(BaseModel):
     vehicle_id: int
     driver_id: int
-
-# --- Delivery Receipts ---
-class DeliveryReceiptCreate(BaseModel):
-    receiver_name: str
-    receiver_phone: Optional[str] = None
-    photo_url: Optional[str] = None
-    notes: Optional[str] = None
-
-class DeliveryReceiptResponse(BaseModel):
-    id: int
-    shipment_id: int
-    receiver_name: str
-    receiver_phone: Optional[str] = None
-    photo_url: Optional[str] = None
-    notes: Optional[str] = None
-    driver_confirmed: bool = False
-    receiver_confirmed: bool = False
-    received_at: datetime.datetime
-
-    class Config:
-        from_attributes = True
 
 # --- Notifications ---
 class NotificationResponse(BaseModel):

@@ -16,6 +16,12 @@ const ROLE_COLORS = {
     DRIVER: 'volcano',
 };
 
+const ROLE_LABELS = {
+    ADMIN: 'Admin',
+    MSME: 'User',
+    DRIVER: 'Driver',
+};
+
 export default function UserManagement() {
     const { token } = useAuth();
     const headers = { Authorization: `Bearer ${token}` };
@@ -54,8 +60,8 @@ export default function UserManagement() {
             title: 'Role',
             dataIndex: 'role',
             key: 'role',
-            render: (role) => <Tag color={ROLE_COLORS[role] || 'default'}>{role}</Tag>,
-            filters: Object.keys(ROLE_COLORS).map(r => ({ text: r, value: r })),
+            render: (role) => <Tag color={ROLE_COLORS[role] || 'default'}>{ROLE_LABELS[role] || role}</Tag>,
+            filters: Object.keys(ROLE_COLORS).map(r => ({ text: ROLE_LABELS[r] || r, value: r })),
             onFilter: (value, record) => record.role === value,
         },
         { title: 'Phone', dataIndex: 'phone', key: 'phone', render: t => t || '-' },
@@ -141,7 +147,7 @@ function AddUserModal({ open, onClose, onSuccess, headers }) {
 
                 <Form.Item name="role" label="Role" rules={[{ required: true }]}>
                     <Select onChange={setSelectedRole}>
-                        <Select.Option value="MSME">MSME (Business User)</Select.Option>
+                        <Select.Option value="MSME">User</Select.Option>
                         <Select.Option value="DRIVER">Driver</Select.Option>
                     </Select>
                 </Form.Item>

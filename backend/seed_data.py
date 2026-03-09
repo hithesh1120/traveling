@@ -2,13 +2,19 @@
 import asyncio
 import sys
 import os
+from datetime import datetime, timedelta
 
 sys.path.append(os.getcwd())
 
 from sqlalchemy.ext.asyncio import create_async_engine
-from database import DATABASE_URL, Base
+from sqlalchemy import select
+from database import DATABASE_URL, Base, AsyncSessionLocal
+from models import (User, UserRole, UserStatus, Company, Vehicle, VehicleType,
+                    Zone, Shipment, ShipmentStatus)
+from auth import get_password_hash
 
 engine = create_async_engine(DATABASE_URL)
+
 
 async def seed_data():
     async with engine.begin() as conn:

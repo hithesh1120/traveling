@@ -94,7 +94,7 @@ export default function Signup() {
                         <strong>{formData.companyName}</strong> has been registered successfully.
                     </Text>
                     <Text type="secondary" style={{ fontSize: 14, display: 'block', marginBottom: 32 }}>
-                        You can now log in as Admin to manage your team — create MSME users and drivers from the Users panel.
+                        You can now log in as Admin to manage your team — create users and drivers from the Users panel.
                     </Text>
                     <Button type="primary" size="large" onClick={() => navigate('/login')}
                         style={{ background: '#facc15', borderColor: '#facc15', height: 48, paddingInline: 40, fontWeight: 600 }}>
@@ -136,7 +136,7 @@ export default function Signup() {
                         Start shipping smarter today.
                     </h1>
                     <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.85)', lineHeight: 1.6 }}>
-                        Register your company as an admin workspace. Add your MSME users and drivers directly from inside the platform.
+                        Register your company as an admin workspace. Add your users and drivers directly from inside the platform.
                     </p>
                     <div style={{ display: 'flex', gap: 24, marginTop: 32 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

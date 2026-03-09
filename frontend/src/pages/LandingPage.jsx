@@ -55,7 +55,7 @@ export default function LandingPage() {
     ];
 
     const steps = [
-        { num: '01', title: 'Register', desc: 'Create your MSME or business account in minutes.' },
+        { num: '01', title: 'Register', desc: 'Create your business account in minutes.' },
         { num: '02', title: 'Create Shipment', desc: 'Enter pickup, drop, and cargo details.' },
         { num: '03', title: 'Auto Dispatch', desc: 'Our system assigns optimal vehicles and drivers.' },
         { num: '04', title: 'Track & Deliver', desc: 'Real-time tracking until confirmed delivery.' },
@@ -63,7 +63,7 @@ export default function LandingPage() {
 
     const roles = [
         { icon: <TeamOutlined style={{ fontSize: 32, color: '#facc15' }} />, title: 'Admin', desc: 'Full platform control: users, vehicles, zones, analytics, and shipment oversight.' },
-        { icon: <SendOutlined style={{ fontSize: 32, color: '#52c41a' }} />, title: 'MSME / Business', desc: 'Create shipments, track deliveries, and manage your logistics operations.' },
+        { icon: <SendOutlined style={{ fontSize: 32, color: '#52c41a' }} />, title: 'Business User', desc: 'Create shipments, track deliveries, and manage your logistics operations.' },
         { icon: <CarOutlined style={{ fontSize: 32, color: '#fa8c16' }} />, title: 'Driver', desc: 'Accept assignments, update delivery status, and confirm deliveries with proof.' },
         { icon: <BarChartOutlined style={{ fontSize: 32, color: '#722ed1' }} />, title: 'Fleet Manager', desc: 'Monitor fleet health, driver performance, and operational efficiency.' },
     ];

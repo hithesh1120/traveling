@@ -13,3 +13,6 @@ passlib[bcrypt]
 python-multipart
 shapely
 email-validator
+aiosqlite
+python-dotenv
+bcrypt

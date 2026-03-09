@@ -14,6 +14,7 @@ import MyShipments from './pages/MyShipments';
 import ShipmentDetail from './pages/ShipmentDetail';
 import DriverDashboard from './pages/DriverDashboard';
 import VehicleManagement from './pages/VehicleManagement';
+import AdminOperations from './pages/AdminOperations';
 import ZoneManagement from './pages/ZoneManagement';
 import OperationsMonitor from './pages/OperationsMonitor';
 import Analytics from './pages/Analytics';
@@ -23,6 +24,7 @@ import SavedLocations from './pages/SavedLocations';
 import RouteTracking from './pages/RouteTracking';
 import DeliveryReceipt from './pages/DeliveryReceipt';
 import CargoVisualizer from './pages/CargoVisualizer';
+import NotificationsPage from './pages/NotificationsPage';
 import { AuthProvider } from './context/AuthContext';
 import { ModalProvider } from './context/ModalContext';
 
@@ -52,16 +54,17 @@ function App() {
                     <Routes>
                       <Route path="/" element={<AdminDashboard />} />
                       <Route path="users" element={<UserManagement />} />
+                      <Route path="operations" element={<AdminOperations />} />
                       <Route path="vehicles" element={<VehicleManagement />} />
                       <Route path="zones" element={<ZoneManagement />} />
-                      <Route path="operations" element={<OperationsMonitor />} />
                       <Route path="analytics" element={<Analytics />} />
                       <Route path="reports" element={<Reports />} />
-                      <Route path="shipments" element={<MyShipments />} />
+                      <Route path="shipments" element={<AdminOperations />} />
                       <Route path="shipments/:id" element={<ShipmentDetail />} />
-                      <Route path="locations" element={<SavedLocations />} />
+                      <Route path="locations" element={<AdminOperations />} />
                       <Route path="track/:id" element={<RouteTracking />} />
                       <Route path="cargo-3d" element={<CargoVisualizer />} />
+                      <Route path="notifications" element={<NotificationsPage />} />
                       <Route path="settings" element={<Settings />} />
                     </Routes>
                   </AppLayout>
@@ -77,6 +80,7 @@ function App() {
                       <Route path="locations" element={<SavedLocations />} />
                       <Route path="shipments/:id" element={<ShipmentDetail />} />
                       <Route path="track/:id" element={<RouteTracking />} />
+                      <Route path="notifications" element={<NotificationsPage />} />
                       <Route path="settings" element={<Settings />} />
                     </Routes>
                   </AppLayout>
@@ -91,6 +95,7 @@ function App() {
                       <Route path="shipments/:id" element={<ShipmentDetail />} />
                       <Route path="track/:id" element={<RouteTracking />} />
                       <Route path="history" element={<DriverHistory />} />
+                      <Route path="notifications" element={<NotificationsPage />} />
                       <Route path="settings" element={<Settings />} />
                     </Routes>
                   </AppLayout>

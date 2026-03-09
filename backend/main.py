@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, delete, or_
-from sqlalchemy.orm import selectinload, aliased
+from sqlalchemy.orm import selectinload, aliased, joinedload
 from contextlib import asynccontextmanager
 import datetime
 from typing import List, Optional
@@ -851,7 +851,13 @@ async def create_shipment(
     # Reload with relationships
     result = await db.execute(
         select(models.Shipment)
-        .options(selectinload(models.Shipment.items), selectinload(models.Shipment.timeline).selectinload(models.ShipmentTimeline.updated_by), selectinload(models.Shipment.assigned_vehicle), selectinload(models.Shipment.assigned_driver))
+        .options(
+            selectinload(models.Shipment.items),
+            selectinload(models.Shipment.timeline).joinedload(models.ShipmentTimeline.updated_by),
+            selectinload(models.Shipment.assigned_vehicle),
+            selectinload(models.Shipment.assigned_driver),
+            selectinload(models.Shipment.receipt)
+        )
         .where(models.Shipment.id == shipment.id)
     )
     return result.scalars().first()
@@ -884,9 +890,10 @@ async def global_search(
 
     ship_query = select(models.Shipment).options(
         selectinload(models.Shipment.items),
-        selectinload(models.Shipment.timeline).selectinload(models.ShipmentTimeline.updated_by),
+        selectinload(models.Shipment.timeline).joinedload(models.ShipmentTimeline.updated_by),
         selectinload(models.Shipment.sender),
-        selectinload(models.Shipment.assigned_driver)
+        selectinload(models.Shipment.assigned_driver),
+        selectinload(models.Shipment.receipt)
     ).outerjoin(Sender, models.Shipment.sender)\
      .outerjoin(Driver, models.Shipment.assigned_driver)\
      .where(or_(
@@ -905,8 +912,11 @@ async def global_search(
     # RBAC for Shipments
     if user.role == models.UserRole.MSME:
         ship_query = ship_query.where(models.Shipment.sender_id == user.id)
-    elif False:
+    elif user.role == models.UserRole.DRIVER:
         ship_query = ship_query.where(models.Shipment.assigned_driver_id == user.id)
+    else:
+        # Admin or others: Filter by company
+        ship_query = ship_query.where(models.Shipment.sender.has(models.User.company_id == user.company_id))
     
     ship_results = await db.execute(ship_query.limit(10))
     shipments = ship_results.scalars().all()
@@ -915,7 +925,8 @@ async def global_search(
     drivers = []
     if user.role == models.UserRole.ADMIN:
         driver_query = select(models.User).where(
-            False,
+            models.User.company_id == user.company_id,
+            models.User.role == models.UserRole.DRIVER,
             or_(
                 models.User.name.ilike(search_term),
                 models.User.email.ilike(search_term),
@@ -958,9 +969,10 @@ async def list_shipments(
 ):
     query = select(models.Shipment).options(
         selectinload(models.Shipment.items),
-        selectinload(models.Shipment.timeline).selectinload(models.ShipmentTimeline.updated_by),
+        selectinload(models.Shipment.timeline).joinedload(models.ShipmentTimeline.updated_by),
         selectinload(models.Shipment.assigned_vehicle),
-        selectinload(models.Shipment.assigned_driver)
+        selectinload(models.Shipment.assigned_driver),
+        selectinload(models.Shipment.receipt)
     )
 
     # Search filter
@@ -1032,9 +1044,10 @@ async def get_shipment(
         select(models.Shipment)
         .options(
             selectinload(models.Shipment.items),
-            selectinload(models.Shipment.timeline).selectinload(models.ShipmentTimeline.updated_by),
+            selectinload(models.Shipment.timeline).joinedload(models.ShipmentTimeline.updated_by),
             selectinload(models.Shipment.assigned_vehicle),
-            selectinload(models.Shipment.assigned_driver)
+            selectinload(models.Shipment.assigned_driver),
+            selectinload(models.Shipment.receipt)
         )
         .where(models.Shipment.id == id)
     )
@@ -1063,7 +1076,7 @@ async def update_shipment(
 
     await db.commit()
     result = await db.execute(
-        select(models.Shipment).options(selectinload(models.Shipment.items), selectinload(models.Shipment.timeline).selectinload(models.ShipmentTimeline.updated_by), selectinload(models.Shipment.assigned_vehicle), selectinload(models.Shipment.assigned_driver))
+        select(models.Shipment).options(selectinload(models.Shipment.items), selectinload(models.Shipment.timeline).joinedload(models.ShipmentTimeline.updated_by), selectinload(models.Shipment.assigned_vehicle), selectinload(models.Shipment.assigned_driver), selectinload(models.Shipment.receipt))
         .where(models.Shipment.id == id)
     )
     return result.scalars().first()
@@ -1177,7 +1190,8 @@ async def auto_dispatch_shipment(
     # Step 3: Find driver (or use manual override)
     if driver_id:
         drv_result = await db.execute(select(models.User).where(
-            models.User.id == driver_id, False
+            models.User.id == driver_id,
+            models.User.company_id == user.company_id
         ))
         driver = drv_result.scalars().first()
         if not driver:
@@ -1189,7 +1203,10 @@ async def auto_dispatch_shipment(
         else:
             # Find any available driver
             drv_result = await db.execute(
-                select(models.User).where(False)
+                select(models.User).where(
+                    models.User.company_id == user.company_id,
+                    models.User.role == models.UserRole.DRIVER
+                )
             )
             drivers = drv_result.scalars().all()
             # Pick first available driver not currently on a trip
@@ -1219,8 +1236,10 @@ async def auto_dispatch_shipment(
     shipment.assigned_at = datetime.datetime.utcnow()
 
     # Update vehicle capacity usage
-    vehicle.current_weight_used += shipment.total_weight
-    vehicle.current_volume_used += shipment.total_volume
+    wt = shipment.total_weight or 0.0
+    vol = shipment.total_volume or 0.0
+    vehicle.current_weight_used += wt
+    vehicle.current_volume_used += vol
     vehicle.status = models.VehicleStatus.ON_TRIP
 
     await add_timeline_entry(db, shipment.id, models.ShipmentStatus.ASSIGNED, user.id,
@@ -1233,7 +1252,7 @@ async def auto_dispatch_shipment(
     await db.commit()
 
     result = await db.execute(
-        select(models.Shipment).options(selectinload(models.Shipment.items), selectinload(models.Shipment.timeline).selectinload(models.ShipmentTimeline.updated_by), selectinload(models.Shipment.assigned_vehicle), selectinload(models.Shipment.assigned_driver))
+        select(models.Shipment).options(selectinload(models.Shipment.items), selectinload(models.Shipment.timeline).joinedload(models.ShipmentTimeline.updated_by), selectinload(models.Shipment.assigned_vehicle), selectinload(models.Shipment.assigned_driver), selectinload(models.Shipment.receipt))
         .where(models.Shipment.id == id)
     )
     return result.scalars().first()
@@ -1249,7 +1268,6 @@ async def manual_assign_shipment(
     """Manual admin override assignment"""
     if user.role != models.UserRole.ADMIN:
         raise HTTPException(403, "Not authorized")
-
     result = await db.execute(select(models.Shipment).where(models.Shipment.id == id))
     shipment = result.scalars().first()
     if not shipment:
@@ -1261,17 +1279,20 @@ async def manual_assign_shipment(
     if not vehicle:
         raise HTTPException(404, "Vehicle not found")
 
-    # Validate driver
     drv_result = await db.execute(select(models.User).where(
-        models.User.id == req.driver_id, False
+        models.User.id == req.driver_id,
+        models.User.company_id == user.company_id
     ))
     if not drv_result.scalars().first():
-        raise HTTPException(404, "Driver not found")
+        raise HTTPException(404, "Driver not found or not in your company")
 
-    # Capacity check
+    # Capacity check (safe handling of None)
+    wt = shipment.total_weight or 0.0
+    vol = shipment.total_volume or 0.0
     remaining_weight = vehicle.weight_capacity - vehicle.current_weight_used
     remaining_volume = vehicle.volume_capacity - vehicle.current_volume_used
-    if remaining_weight < shipment.total_weight or remaining_volume < shipment.total_volume:
+    
+    if remaining_weight < wt or remaining_volume < vol:
         raise HTTPException(400, f"Vehicle capacity exceeded. Remaining: {remaining_weight}kg / {remaining_volume}m³")
 
     # If reassignment: restore capacity to old vehicle
@@ -1279,8 +1300,8 @@ async def manual_assign_shipment(
         old_veh_res = await db.execute(select(models.Vehicle).where(models.Vehicle.id == shipment.assigned_vehicle_id))
         old_vehicle = old_veh_res.scalars().first()
         if old_vehicle:
-            old_vehicle.current_weight_used = max(0, old_vehicle.current_weight_used - shipment.total_weight)
-            old_vehicle.current_volume_used = max(0, old_vehicle.current_volume_used - shipment.total_volume)
+            old_vehicle.current_weight_used = max(0, old_vehicle.current_weight_used - wt)
+            old_vehicle.current_volume_used = max(0, old_vehicle.current_volume_used - vol)
             # Check if old vehicle becomes empty/available
             active_count = await db.execute(
                 select(func.count(models.Shipment.id)).where(
@@ -1288,7 +1309,7 @@ async def manual_assign_shipment(
                     models.Shipment.status.in_([
                         models.ShipmentStatus.ASSIGNED, models.ShipmentStatus.PICKED_UP, models.ShipmentStatus.IN_TRANSIT
                     ]),
-                    models.Shipment.id != shipment.id # Exclude current shipment
+                    models.Shipment.id != shipment.id
                 )
             )
             if active_count.scalar() == 0:
@@ -1299,14 +1320,15 @@ async def manual_assign_shipment(
     shipment.status = models.ShipmentStatus.ASSIGNED
     shipment.assigned_at = datetime.datetime.utcnow()
 
-    vehicle.current_weight_used += shipment.total_weight
-    vehicle.current_volume_used += shipment.total_volume
+    vehicle.current_weight_used += wt
+    vehicle.current_volume_used += vol
     vehicle.status = models.VehicleStatus.ON_TRIP
 
     await add_timeline_entry(db, shipment.id, models.ShipmentStatus.ASSIGNED, user.id, "Manually assigned by admin")
     await create_notification(db, req.driver_id, "ASSIGNMENT", "New Shipment Assigned",
                               f"Shipment {shipment.tracking_number} assigned to you")
-    await create_audit_log(db, user.id, "SHIPMENT_ASSIGNED", "SHIPMENT", shipment.id, f"Shipment {shipment.tracking_number} manually assigned to driver {req.driver_id}")
+    await create_audit_log(db, user.id, "SHIPMENT_ASSIGNED", "SHIPMENT", shipment.id, 
+                           f"Shipment {shipment.tracking_number} manually assigned to driver {req.driver_id}")
 
     await db.commit()
 
@@ -1314,13 +1336,15 @@ async def manual_assign_shipment(
     result = await db.execute(
         select(models.Shipment).options(
             selectinload(models.Shipment.items),
-            selectinload(models.Shipment.timeline).selectinload(models.ShipmentTimeline.updated_by),
+            selectinload(models.Shipment.timeline).joinedload(models.ShipmentTimeline.updated_by),
             selectinload(models.Shipment.assigned_vehicle),
-            selectinload(models.Shipment.assigned_driver)
+            selectinload(models.Shipment.assigned_driver),
+            selectinload(models.Shipment.receipt)
         )
         .where(models.Shipment.id == id)
     )
     return result.scalars().first()
+
 
 
 # ===============================
@@ -1331,7 +1355,7 @@ async def manual_assign_shipment(
 async def pickup_shipment(
     id: int, db: AsyncSession = Depends(get_db), user: models.User = Depends(get_current_user)
 ):
-    if True:
+    if user.role != models.UserRole.DRIVER:
         raise HTTPException(403, "Only drivers can pick up shipments")
 
     result = await db.execute(select(models.Shipment).where(models.Shipment.id == id))
@@ -1348,7 +1372,7 @@ async def pickup_shipment(
 
     await db.commit()
     result = await db.execute(
-        select(models.Shipment).options(selectinload(models.Shipment.items), selectinload(models.Shipment.timeline).selectinload(models.ShipmentTimeline.updated_by), selectinload(models.Shipment.assigned_vehicle), selectinload(models.Shipment.assigned_driver))
+        select(models.Shipment).options(selectinload(models.Shipment.items), selectinload(models.Shipment.timeline).joinedload(models.ShipmentTimeline.updated_by), selectinload(models.Shipment.assigned_vehicle), selectinload(models.Shipment.assigned_driver), selectinload(models.Shipment.receipt))
         .where(models.Shipment.id == id)
     )
     return result.scalars().first()
@@ -1358,7 +1382,7 @@ async def pickup_shipment(
 async def transit_shipment(
     id: int, db: AsyncSession = Depends(get_db), user: models.User = Depends(get_current_user)
 ):
-    if True:
+    if user.role != models.UserRole.DRIVER:
         raise HTTPException(403, "Only drivers can update transit status")
 
     result = await db.execute(select(models.Shipment).where(models.Shipment.id == id))
@@ -1375,7 +1399,7 @@ async def transit_shipment(
 
     await db.commit()
     result = await db.execute(
-        select(models.Shipment).options(selectinload(models.Shipment.items), selectinload(models.Shipment.timeline).selectinload(models.ShipmentTimeline.updated_by), selectinload(models.Shipment.assigned_vehicle), selectinload(models.Shipment.assigned_driver))
+        select(models.Shipment).options(selectinload(models.Shipment.items), selectinload(models.Shipment.timeline).joinedload(models.ShipmentTimeline.updated_by), selectinload(models.Shipment.assigned_vehicle), selectinload(models.Shipment.assigned_driver), selectinload(models.Shipment.receipt))
         .where(models.Shipment.id == id)
     )
     return result.scalars().first()
@@ -1389,7 +1413,7 @@ async def deliver_shipment(
     user: models.User = Depends(get_current_user)
 ):
     """Driver marks delivery + creates receipt (driver confirmation)"""
-    if True:
+    if user.role != models.UserRole.DRIVER:
         raise HTTPException(403, "Only drivers can deliver shipments")
 
     result = await db.execute(select(models.Shipment).where(models.Shipment.id == id))
@@ -1441,7 +1465,7 @@ async def deliver_shipment(
 
     await db.commit()
     result = await db.execute(
-        select(models.Shipment).options(selectinload(models.Shipment.items), selectinload(models.Shipment.timeline).selectinload(models.ShipmentTimeline.updated_by), selectinload(models.Shipment.assigned_vehicle), selectinload(models.Shipment.assigned_driver))
+        select(models.Shipment).options(selectinload(models.Shipment.items), selectinload(models.Shipment.timeline).joinedload(models.ShipmentTimeline.updated_by), selectinload(models.Shipment.assigned_vehicle), selectinload(models.Shipment.assigned_driver), selectinload(models.Shipment.receipt))
         .where(models.Shipment.id == id)
     )
     return result.scalars().first()
@@ -1472,7 +1496,7 @@ async def confirm_receipt(
 
     await db.commit()
     result = await db.execute(
-        select(models.Shipment).options(selectinload(models.Shipment.items), selectinload(models.Shipment.timeline).selectinload(models.ShipmentTimeline.updated_by), selectinload(models.Shipment.assigned_vehicle), selectinload(models.Shipment.assigned_driver))
+        select(models.Shipment).options(selectinload(models.Shipment.items), selectinload(models.Shipment.timeline).joinedload(models.ShipmentTimeline.updated_by), selectinload(models.Shipment.assigned_vehicle), selectinload(models.Shipment.assigned_driver), selectinload(models.Shipment.receipt))
         .where(models.Shipment.id == id)
     )
     return result.scalars().first()
@@ -1486,7 +1510,7 @@ async def get_delivery_receipt_data(
         select(models.Shipment).options(
             selectinload(models.Shipment.receipt),
             selectinload(models.Shipment.items),
-            selectinload(models.Shipment.timeline).selectinload(models.ShipmentTimeline.updated_by),
+            selectinload(models.Shipment.timeline).joinedload(models.ShipmentTimeline.updated_by),
             selectinload(models.Shipment.assigned_vehicle),
             selectinload(models.Shipment.assigned_driver)
         ).where(models.Shipment.id == id)
@@ -2024,7 +2048,10 @@ async def driver_analytics(
         raise HTTPException(403, "Not authorized")
 
     drivers_result = await db.execute(
-        select(models.User).where(False)
+        select(models.User).where(
+            models.User.company_id == user.company_id,
+            models.User.role == models.UserRole.DRIVER
+        )
     )
     drivers = drivers_result.scalars().all()
 

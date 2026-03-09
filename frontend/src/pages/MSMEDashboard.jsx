@@ -1,11 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Card, Row, Col, Statistic, Button, Table, Tag, Modal, Form, Input, InputNumber, Typography, Space, message, Divider, Select } from 'antd';
+import {
+    Card, Row, Col, Statistic, Button, Table, Modal, Form, Input,
+    InputNumber, Typography, Space, message, Select, Tag
+} from 'antd';
 import { DatePicker } from 'antd';
-import { SendOutlined, PlusOutlined, BoxPlotOutlined, CheckCircleOutlined, ClockCircleOutlined, ShoppingOutlined } from '@ant-design/icons';
+import {
+    SendOutlined, PlusOutlined, CheckCircleOutlined, ClockCircleOutlined,
+    ShoppingOutlined, EyeOutlined
+} from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import LocationAutocomplete from '../components/LocationAutocomplete';
 import MSMEAnalyticsGraph from '../components/MSMEAnalyticsGraph';
 
 const { Title, Text } = Typography;
@@ -14,6 +19,9 @@ const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 export default function MSMEDashboard() {
     const { token, user } = useAuth();
     const navigate = useNavigate();
+    const headers = { Authorization: `Bearer ${token}` };
+
+    // ── Shipment State ──
     const [shipments, setShipments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [modalOpen, setModalOpen] = useState(false);
@@ -21,8 +29,12 @@ export default function MSMEDashboard() {
     const [creating, setCreating] = useState(false);
     const [volume, setVolume] = useState(0);
 
-    const headers = { Authorization: `Bearer ${token}` };
+    // ── Locations from admin (read-only for users) ──
+    const [savedAddresses, setSavedAddresses] = useState([]);
+    const [companyAddresses, setCompanyAddresses] = useState([]);
+    const [loadingAddresses, setLoadingAddresses] = useState(false);
 
+    // ── Fetch Functions ──
     const fetchShipments = async () => {
         setLoading(true);
         try {
@@ -32,8 +44,22 @@ export default function MSMEDashboard() {
         setLoading(false);
     };
 
-    useEffect(() => { fetchShipments(); }, []);
+    const fetchLocations = async () => {
+        setLoadingAddresses(true);
+        try {
+            const res = await axios.get(`${API}/addresses`, { headers });
+            setSavedAddresses(res.data);
+            setCompanyAddresses(res.data.filter(a => a.company_id === user.company_id));
+        } catch { message.warning('Could not load locations'); }
+        setLoadingAddresses(false);
+    };
 
+    useEffect(() => {
+        fetchShipments();
+        fetchLocations();
+    }, []);
+
+    // ── Shipment Stats ──
     const stats = {
         total: shipments.length,
         pending: shipments.filter(s => s.status === 'PENDING').length,
@@ -41,39 +67,27 @@ export default function MSMEDashboard() {
         delivered: shipments.filter(s => ['DELIVERED', 'CONFIRMED'].includes(s.status)).length,
     };
 
-    const [savedAddresses, setSavedAddresses] = useState([]);
-    const [companyAddresses, setCompanyAddresses] = useState([]);
-    const [loadingAddresses, setLoadingAddresses] = useState(false);
-
-    useEffect(() => {
-        if (!token) return;
-        setLoadingAddresses(true);
-        axios.get(`${API}/addresses`, { headers })
-            .then(res => {
-                setSavedAddresses(res.data.filter(a => !a.is_global));
-                setCompanyAddresses(res.data.filter(a => a.company_id === user.company_id));
-            })
-            .catch(() => message.warning('Could not load saved locations'))
-            .finally(() => setLoadingAddresses(false));
-    }, [token, user]);
-
-    const handleAddressSelect = (type, locationId) => {
-        const selected = type === 'company'
-            ? companyAddresses.find(a => a.id === locationId)
-            : savedAddresses.find(a => a.id === locationId);
-
+    // ── Form Handlers ──
+    const handleAddressSelect = (locationId) => {
+        const selected = savedAddresses.find(a => a.id === locationId);
         if (!selected) return;
+        // For Delivery: vendor location sets drop_address
+        // For Collection: vendor location sets drop_address (vendor is the pickup)
+        form.setFieldsValue({
+            drop_address: selected.address,
+            drop_contact: selected.contact || '',
+            drop_phone: selected.phone || '',
+        });
+    };
 
-        if (type === 'drop' || type === 'company') {
-            form.setFieldsValue({
-                unloading_location: selected.address, // Update visual field too
-                drop_address: selected.address,
-                drop_contact: selected.contact || '',
-                drop_phone: selected.phone || '',
-                drop_lat: selected.lat ?? null,
-                drop_lng: selected.lng ?? null,
-            });
-        }
+    const handleCompanyLocationSelect = (locationId) => {
+        const selected = savedAddresses.find(a => a.id === locationId);
+        if (!selected) return;
+        form.setFieldsValue({
+            pickup_address: selected.address,
+            pickup_contact: selected.contact || '',
+            pickup_phone: selected.phone || '',
+        });
     };
 
     const recalcVolume = () => {
@@ -91,51 +105,38 @@ export default function MSMEDashboard() {
             const length = values.item_length || 0;
             const width = values.item_width || 0;
             const height = values.item_height || 0;
-
             const itemVolume = length * width * height;
             const totalVolume = itemVolume * qty;
             const totalWeight = weight * qty;
-
             const items = values.material_description ? [{
-                name: values.material_description,
-                quantity: qty,
-                weight: weight,
-                length, width, height
+                name: values.material_description, quantity: qty, weight, length, width, height
             }] : [];
 
-            let finalPickupAddress = values.pickup_address;
-            let finalPickupContact = values.pickup_contact;
-            let finalPickupPhone = values.pickup_phone;
-
-            let finalDropAddress = values.unloading_location || values.drop_address;
-            let finalDropContact = values.drop_contact;
-            let finalDropPhone = values.drop_phone;
+            let finalPickupAddress = values.pickup_address || 'Default Warehouse';
+            let finalPickupContact = values.pickup_contact || 'Dispatch';
+            let finalPickupPhone = values.pickup_phone || '9999999999';
+            let finalDropAddress = values.drop_address;
+            let finalDropContact = values.drop_contact || '';
+            let finalDropPhone = values.drop_phone || '';
 
             if (values.order_type === 'Collection') {
-                // For Collection, the selected "Vendor" is actually the pickup
-                finalPickupAddress = values.drop_address;
-                finalPickupContact = values.drop_contact;
-                finalPickupPhone = values.drop_phone;
-
-                // And the drop location is the company's own location
-                const defaultCompanyAddr = companyAddresses.length > 0 ? companyAddresses[0] : null;
-                finalDropAddress = defaultCompanyAddr ? defaultCompanyAddr.address : 'Default Warehouse';
-                finalDropContact = defaultCompanyAddr ? (defaultCompanyAddr.contact || '') : 'Dispatch';
-                finalDropPhone = defaultCompanyAddr ? (defaultCompanyAddr.phone || '') : '9999999999';
+                // Collection: driver picks up FROM vendor (the location selected as "Pickup Location")
+                // and drops TO company location (selected in "Your Company Location")
+                // In our form: vendor = drop_address (set by handleAddressSelect), company = pickup_address (set by handleCompanyLocationSelect)
+                finalPickupAddress = values.drop_address;             // vendor location (driver picks up from here)
+                finalPickupContact = values.drop_contact || '';
+                finalPickupPhone = values.drop_phone || '';
+                finalDropAddress = values.pickup_address || 'Company Warehouse';  // company location (driver drops here)
+                finalDropContact = values.pickup_contact || '';
+                finalDropPhone = values.pickup_phone || '';
             }
 
             await axios.post(`${API}/shipments`, {
-                pickup_address: finalPickupAddress,
-                pickup_contact: finalPickupContact,
-                pickup_phone: finalPickupPhone,
-                drop_address: finalDropAddress,
-                drop_contact: finalDropContact,
-                drop_phone: finalDropPhone,
-                total_weight: totalWeight,
-                total_volume: totalVolume,
+                pickup_address: finalPickupAddress, pickup_contact: finalPickupContact, pickup_phone: finalPickupPhone,
+                drop_address: finalDropAddress, drop_contact: finalDropContact, drop_phone: finalDropPhone,
+                total_weight: totalWeight, total_volume: totalVolume,
                 description: `PO: ${values.po_number || '-'} | Order Type: ${values.order_type || '-'} | Requested By: ${values.requested_by || '-'}`,
-                special_instructions: values.special_instructions,
-                items,
+                special_instructions: values.special_instructions, items,
             }, { headers });
             message.success('Order created successfully!');
             setModalOpen(false);
@@ -148,15 +149,11 @@ export default function MSMEDashboard() {
         setCreating(false);
     };
 
-    const statusColor = {
-        PENDING: 'gold', ASSIGNED: 'blue', PICKED_UP: 'cyan',
-        IN_TRANSIT: 'processing', DELIVERED: 'green', CONFIRMED: 'success', CANCELLED: 'red',
-    };
-
-    const columns = [
+    // ── Columns ──
+    const shipmentColumns = [
         {
             title: 'Tracking #', dataIndex: 'tracking_number', key: 'tracking_number',
-            render: (t, r) => <a onClick={() => navigate(r.id.toString())}>{t}</a>
+            render: (t, r) => <a onClick={() => navigate(`/msme/shipments/${r.id}`)}>{t}</a>
         },
         {
             title: 'Item', dataIndex: 'items', key: 'items',
@@ -168,28 +165,48 @@ export default function MSMEDashboard() {
                 </Space>
             )
         },
+        {
+            title: 'Type', key: 'order_type', width: 100,
+            render: (_, r) => {
+                if (r.description && r.description.includes('Order Type: Collection')) {
+                    return <Tag color="orange">Collection</Tag>;
+                }
+                if (r.description && r.description.includes('Order Type: Delivery')) {
+                    return <Tag color="blue">Delivery</Tag>;
+                }
+                return null;
+            }
+        },
         { title: 'Pickup', dataIndex: 'pickup_address', key: 'pickup', ellipsis: true },
         { title: 'Drop', dataIndex: 'drop_address', key: 'drop', ellipsis: true },
-        { title: 'Weight', dataIndex: 'total_weight', key: 'weight', render: v => `${v} kg` },
+        { title: 'Weight', dataIndex: 'total_weight', key: 'weight', render: v => `${v} kg`, width: 90 },
         {
-            title: 'Status', dataIndex: 'status', key: 'status',
+            title: 'Status', dataIndex: 'status', key: 'status', width: 120,
             render: s => <span style={{ fontWeight: 500 }}>{s.replace(/_/g, ' ')}</span>
         },
         {
-            title: 'Created', dataIndex: 'created_at', key: 'created_at',
+            title: 'Created', dataIndex: 'created_at', key: 'created_at', width: 110,
             render: d => new Date(d).toLocaleDateString()
+        },
+        {
+            title: '', key: 'actions', width: 50,
+            render: (_, r) => (
+                <Button size="small" icon={<EyeOutlined />} onClick={() => navigate(`/msme/shipments/${r.id}`)} />
+            )
         },
     ];
 
     return (
         <div>
+            {/* ─── Header ─── */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                <Title level={3} style={{ margin: 0 }}>MSME Dashboard</Title>
+                <Title level={3} style={{ margin: 0 }}>User Dashboard</Title>
                 <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>
                     New Shipment
                 </Button>
             </div>
 
+            {/* ─── Stats ─── */}
             <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
                 <Col xs={12} sm={6}>
                     <Card bordered={false}><Statistic title="Total Shipments" value={stats.total} prefix={<ShoppingOutlined />} /></Card>
@@ -205,19 +222,23 @@ export default function MSMEDashboard() {
                 </Col>
             </Row>
 
+            {/* ─── Analytics ─── */}
             <MSMEAnalyticsGraph data={shipments} />
 
-            <Card title="Recent Shipments" bordered={false}>
+            {/* ─── All Shipments ─── */}
+            <Card title="All Shipments" bordered={false}>
                 <Table
-                    columns={columns}
-                    dataSource={shipments.slice(0, 3)}
+                    columns={shipmentColumns}
+                    dataSource={shipments}
                     rowKey="id"
                     loading={loading}
-                    pagination={false}
+                    pagination={{ pageSize: 10 }}
                     size="middle"
+                    scroll={{ x: 800 }}
                 />
             </Card>
 
+            {/* ─── New Shipment Modal ─── */}
             <Modal
                 title="Add Order"
                 open={modalOpen}
@@ -225,41 +246,33 @@ export default function MSMEDashboard() {
                 footer={null}
                 width={680}
             >
-                <Form
-                    form={form}
-                    layout="vertical"
-                    onFinish={handleCreate}
-                    initialValues={{ requested_by: user?.name || '' }}
-                >
-                    {/* Hidden fields */}
-                    <Form.Item name="pickup_address" initialValue="Default Warehouse" hidden><Input /></Form.Item>
-                    <Form.Item name="pickup_contact" initialValue="Dispatch" hidden><Input /></Form.Item>
-                    <Form.Item name="pickup_phone" initialValue="9999999999" hidden><Input /></Form.Item>
+                <Form form={form} layout="vertical" onFinish={handleCreate}
+                    initialValues={{ requested_by: user?.name || '' }}>
+                    {/* Hidden fields for backend */}
+                    <Form.Item name="pickup_address" hidden><Input /></Form.Item>
+                    <Form.Item name="pickup_contact" hidden><Input /></Form.Item>
+                    <Form.Item name="pickup_phone" hidden><Input /></Form.Item>
                     <Form.Item name="drop_address" hidden><Input /></Form.Item>
                     <Form.Item name="drop_contact" hidden><Input /></Form.Item>
                     <Form.Item name="drop_phone" hidden><Input /></Form.Item>
 
-                    {/* Row 1: Vendor + Date */}
+                    {/* Row 1: Location + Date */}
                     <Row gutter={16}>
                         <Col span={12}>
-                            <Form.Item
-                                noStyle
-                                shouldUpdate={(prevValues, currentValues) => prevValues.order_type !== currentValues.order_type}
-                            >
+                            <Form.Item noStyle shouldUpdate={(prev, cur) => prev.order_type !== cur.order_type}>
                                 {({ getFieldValue }) => {
                                     const isCollection = getFieldValue('order_type') === 'Collection';
                                     return (
-                                        <Form.Item name="vendor_location" label={isCollection ? "Pickup Location" : "Vendor"} rules={[{ required: true, message: 'Please select a location' }]}>
+                                        <Form.Item name="vendor_location" label={isCollection ? "Pickup Location" : "Vendor / Location"}
+                                            rules={[{ required: true, message: 'Please select a location' }]}>
                                             <Select
-                                                placeholder={loadingAddresses ? 'Loading...' : `Select ${isCollection ? 'location' : 'vendor'}`}
+                                                placeholder={loadingAddresses ? 'Loading...' : 'Select location'}
                                                 loading={loadingAddresses}
-                                                onChange={(val) => handleAddressSelect('drop', val)}
+                                                onChange={handleAddressSelect}
                                                 options={savedAddresses.map(a => ({ label: a.label, value: a.id }))}
                                                 showSearch
-                                                filterOption={(input, option) =>
-                                                    option.label.toLowerCase().includes(input.toLowerCase())
-                                                }
-                                                notFoundContent={savedAddresses.length === 0 && !loadingAddresses ? 'No saved locations yet' : null}
+                                                filterOption={(input, option) => option.label.toLowerCase().includes(input.toLowerCase())}
+                                                notFoundContent={savedAddresses.length === 0 && !loadingAddresses ? 'No locations available — contact your admin' : null}
                                             />
                                         </Form.Item>
                                     );
@@ -280,7 +293,7 @@ export default function MSMEDashboard() {
                                 <Select placeholder="Select type" options={[
                                     { label: 'Collection', value: 'Collection' },
                                     { label: 'Delivery', value: 'Delivery' },
-                                ]} />
+                                ]} onChange={() => form.resetFields(['vendor_location', 'company_location'])} />
                             </Form.Item>
                         </Col>
                         <Col span={12}>
@@ -290,7 +303,33 @@ export default function MSMEDashboard() {
                         </Col>
                     </Row>
 
-                    {/* Row 3: Material Description + Quantity */}
+                    {/* Row 2b: Company location selector (Collection only) */}
+                    <Form.Item noStyle shouldUpdate={(prev, cur) => prev.order_type !== cur.order_type}>
+                        {({ getFieldValue }) => {
+                            const isCollection = getFieldValue('order_type') === 'Collection';
+                            if (!isCollection) return null;
+                            return (
+                                <Form.Item
+                                    name="company_location"
+                                    label="Your Company Location (Drop-off Point)"
+                                    rules={[{ required: true, message: 'Please select your company location' }]}
+                                    extra="Items will be collected and delivered to this location"
+                                >
+                                    <Select
+                                        placeholder={loadingAddresses ? 'Loading...' : 'Select your company location'}
+                                        loading={loadingAddresses}
+                                        onChange={handleCompanyLocationSelect}
+                                        options={savedAddresses.map(a => ({ label: `${a.label} – ${a.address}`, value: a.id }))}
+                                        showSearch
+                                        filterOption={(input, option) => option.label.toLowerCase().includes(input.toLowerCase())}
+                                        notFoundContent={savedAddresses.length === 0 && !loadingAddresses ? 'No locations available — contact your admin' : null}
+                                    />
+                                </Form.Item>
+                            );
+                        }}
+                    </Form.Item>
+
+                    {/* Row 3: Material + Quantity */}
                     <Row gutter={16}>
                         <Col span={12}>
                             <Form.Item name="material_description" label="Material Description" rules={[{ required: true, message: 'Enter material description' }]}>
@@ -304,11 +343,16 @@ export default function MSMEDashboard() {
                         </Col>
                     </Row>
 
-                    {/* Row 4: Weight */}
+                    {/* Row 4: Weight + Requested By */}
                     <Row gutter={16}>
                         <Col span={12}>
                             <Form.Item name="item_weight" label="Weight (kgs)" rules={[{ required: true, message: 'Enter weight' }]}>
                                 <InputNumber min={0} style={{ width: '100%' }} placeholder="e.g. 50" />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item name="requested_by" label="Requested By">
+                                <Input placeholder="Your name" />
                             </Form.Item>
                         </Col>
                     </Row>
@@ -318,47 +362,21 @@ export default function MSMEDashboard() {
                         Volume: {isNaN(volume) || volume === 0 ? '0' : volume.toFixed(4)} cubic meter
                     </div>
 
-                    {/* Row 5: Length, Breadth, Height */}
+                    {/* Row 5: Dimensions */}
                     <Row gutter={16}>
                         <Col span={8}>
-                            <Form.Item name="item_length" label="Length" rules={[{ required: true, message: 'Required' }]}>
+                            <Form.Item name="item_length" label="Length (m)" rules={[{ required: true, message: 'Required' }]}>
                                 <InputNumber min={0} style={{ width: '100%' }} onChange={recalcVolume} placeholder="e.g. 1.2" />
                             </Form.Item>
                         </Col>
                         <Col span={8}>
-                            <Form.Item name="item_width" label="Breadth" rules={[{ required: true, message: 'Required' }]}>
+                            <Form.Item name="item_width" label="Breadth (m)" rules={[{ required: true, message: 'Required' }]}>
                                 <InputNumber min={0} style={{ width: '100%' }} onChange={recalcVolume} placeholder="e.g. 0.8" />
                             </Form.Item>
                         </Col>
                         <Col span={8}>
-                            <Form.Item name="item_height" label="Height" rules={[{ required: true, message: 'Required' }]}>
+                            <Form.Item name="item_height" label="Height (m)" rules={[{ required: true, message: 'Required' }]}>
                                 <InputNumber min={0} style={{ width: '100%' }} onChange={recalcVolume} placeholder="e.g. 0.5" />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
-                    {/* Row 6: Unloading Location + Requested By */}
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item
-                                noStyle
-                                shouldUpdate={(prevValues, currentValues) => prevValues.order_type !== currentValues.order_type}
-                            >
-                                {({ getFieldValue }) => {
-                                    const isCollection = getFieldValue('order_type') === 'Collection';
-                                    if (isCollection) return null; // Completely hide Unloading Location for Collection
-
-                                    return (
-                                        <Form.Item name="unloading_location" label="Unloading Location" rules={[{ required: true, message: 'Enter unloading location' }]}>
-                                            <Input placeholder="Enter unloading location" />
-                                        </Form.Item>
-                                    );
-                                }}
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item name="requested_by" label="Requested By">
-                                <Input placeholder="Your name" />
                             </Form.Item>
                         </Col>
                     </Row>

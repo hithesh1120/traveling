@@ -185,22 +185,16 @@ export default function MyShipments() {
         {
             title: 'Pickup',
             key: 'pickup',
+            dataIndex: 'pickup_address',
             ellipsis: true,
             width: 200,
-            render: (_, r) => {
-                const isCollection = r.description && r.description.includes('Order Type: Collection');
-                return <span>{isCollection ? r.drop_address : r.pickup_address}</span>;
-            }
         },
         {
             title: 'Drop',
             key: 'drop',
+            dataIndex: 'drop_address',
             ellipsis: true,
             width: 200,
-            render: (_, r) => {
-                const isCollection = r.description && r.description.includes('Order Type: Collection');
-                return <span>{isCollection ? r.pickup_address : r.drop_address}</span>;
-            }
         },
         { title: 'Weight', dataIndex: 'total_weight', key: 'weight', render: v => `${v} kg`, width: 90 },
         { title: 'Volume', dataIndex: 'total_volume', key: 'volume', render: v => `${v} m³`, width: 90 },
