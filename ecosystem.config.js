@@ -13,8 +13,8 @@ module.exports = {
     {
       name: "logistics-frontend",
       cwd: "./frontend",
-      script: "C:\\Program Files\\nodejs\\npm.cmd",
-      args: "run dev",
+      script: "node",
+      args: "./node_modules/vite/bin/vite.js",
       interpreter: "none"
     }
   ]

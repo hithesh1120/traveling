@@ -60,7 +60,9 @@ const getMenuItems = (role) => {
       return [
         { key: '/admin', icon: <DashboardOutlined />, label: <Link to="/admin">Dashboard</Link> },
         { type: 'divider' },
-        { key: '/admin/operations', icon: <RocketOutlined />, label: <Link to="/admin/operations">Operations</Link> },
+        { key: '/admin/operations', icon: <RocketOutlined />, label: <Link to="/admin/operations">Orders</Link> },
+        { key: '/admin/operations?action=add-vehicle', icon: <CarOutlined />, label: <Link to="/admin/operations?action=add-vehicle">Add Vehicle</Link> },
+        { key: '/admin/operations?action=add-location', icon: <EnvironmentOutlined />, label: <Link to="/admin/operations?action=add-location">Add Location</Link> },
         { key: '/admin/analytics', icon: <FundOutlined />, label: <Link to="/admin/analytics">Analytics</Link> },
         { type: 'divider' },
         { key: '/admin/reports', icon: <BarChartOutlined />, label: <Link to="/admin/reports">Reports</Link> },

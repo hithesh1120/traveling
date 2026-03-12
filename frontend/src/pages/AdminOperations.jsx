@@ -8,7 +8,7 @@ import {
     PlusOutlined, CarOutlined, EditOutlined, EyeOutlined, SendOutlined,
     EnvironmentOutlined, DeleteOutlined, CompassOutlined, GlobalOutlined
 } from '@ant-design/icons';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import AdvancedFilterBar from '../components/AdvancedFilterBar';
 import TruckCargoVisualizer from '../components/TruckCargoVisualizer';
@@ -31,6 +31,8 @@ const STATUS_OPTIONS = [
 export default function AdminOperations() {
     const { token, user } = useAuth();
     const navigate = useNavigate();
+    const routerLocation = useLocation();
+    const [searchParams, setSearchParams] = useSearchParams();
     const headers = { Authorization: `Bearer ${token}` };
 
     // ── Shipment State ──
@@ -108,6 +110,21 @@ export default function AdminOperations() {
         fetchVehiclesAndDrivers();
         fetchLocations();
     }, []);
+
+    // Effect to open modals if action query param is present
+    useEffect(() => {
+        const action = searchParams.get('action');
+        if (action === 'add-vehicle') {
+            setEditingVehicle(null);
+            vehForm.resetFields();
+            setVehModalOpen(true);
+            setSearchParams({}); // Clear it so it doesn't retrigger
+        } else if (action === 'add-location') {
+            locForm.resetFields();
+            setLocModalOpen(true);
+            setSearchParams({}); // Clear it so it doesn't retrigger
+        }
+    }, [searchParams, setSearchParams, vehForm, locForm]);
 
     // ═══════════════════════════════════════════════
     // SHIPMENT HANDLERS
@@ -334,7 +351,6 @@ export default function AdminOperations() {
             {/* ─── SECTION 2: VEHICLES ─── */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <Title level={3} style={{ margin: 0 }}>Vehicle Fleet</Title>
-                <Button type="primary" icon={<PlusOutlined />} onClick={openVehCreate}>Add Vehicle</Button>
             </div>
 
             <Card bordered={false} style={{ marginBottom: 32 }}>
@@ -353,11 +369,6 @@ export default function AdminOperations() {
             <Card
                 title={<Title level={4} style={{ margin: 0 }}>Saved Locations</Title>}
                 bordered={false}
-                extra={
-                    <Button type="primary" icon={<PlusOutlined />} onClick={() => { locForm.resetFields(); setLocModalOpen(true); }}>
-                        Add Location
-                    </Button>
-                }
             >
                 <Table
                     columns={locationColumns}
