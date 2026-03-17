@@ -59,11 +59,10 @@ const getMenuItems = (role) => {
     case 'ADMIN':
       return [
         { key: '/admin', icon: <DashboardOutlined />, label: <Link to="/admin">Dashboard</Link> },
-        { key: '/admin/operations', icon: <RocketOutlined />, label: <Link to="/admin/operations">Orders</Link> },
+        { key: '/admin/shipments', icon: <RocketOutlined />, label: <Link to="/admin/shipments">Orders</Link> },
         { key: '/admin/track-orders', icon: <AimOutlined />, label: <Link to="/admin/track-orders">Track Orders</Link> },
-        { key: '/admin/operations?action=add-vehicle', icon: <CarOutlined />, label: <Link to="/admin/operations?action=add-vehicle">Add Vehicle</Link> },
-        { key: '/admin/operations?action=add-location', icon: <EnvironmentOutlined />, label: <Link to="/admin/operations?action=add-location">Add Location</Link> },
-        { key: '/admin/analytics', icon: <FundOutlined />, label: <Link to="/admin/analytics">Analytics</Link> },
+        { key: '/admin/vehicles', icon: <CarOutlined />, label: <Link to="/admin/vehicles">Vehicles</Link> },
+        { key: '/admin/companies', icon: <BankOutlined />, label: <Link to="/admin/companies">Companies</Link> },
         { type: 'divider' },
         { key: '/admin/reports', icon: <BarChartOutlined />, label: <Link to="/admin/reports">Reports</Link> },
         { key: '/admin/users', icon: <TeamOutlined />, label: <Link to="/admin/users">Users</Link> },
@@ -73,6 +72,8 @@ const getMenuItems = (role) => {
     case 'MSME':
       return [
         { key: '/msme', icon: <DashboardOutlined />, label: <Link to="/msme">Dashboard</Link> },
+        { key: '/msme/shipments', icon: <RocketOutlined />, label: <Link to="/msme/shipments">Shipments</Link> },
+        { key: '/msme/locations', icon: <EnvironmentOutlined />, label: <Link to="/msme/locations">Saved Locations</Link> },
         { type: 'divider' },
         { key: '/msme/settings', icon: <SettingOutlined />, label: <Link to="/msme/settings">Settings</Link> },
       ];
@@ -246,6 +247,10 @@ export default function AppLayout({ children }) {
             items={menuItems}
             style={{ borderRight: 0, marginTop: 8, background: 'transparent', flex: 1, overflowY: 'auto' }}
             className="custom-sidebar-menu"
+            tooltipProps={{
+              overlayInnerStyle: { background: '#fff', color: '#262626', fontWeight: 500 },
+              overlayStyle: { zIndex: 1100 },
+            }}
           />
         </div>
       </Sider>

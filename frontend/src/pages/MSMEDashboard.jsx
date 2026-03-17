@@ -264,19 +264,6 @@ export default function MSMEDashboard() {
             {/* ─── Analytics ─── */}
             <MSMEAnalyticsGraph data={shipments} />
 
-            {/* ─── All Shipments ─── */}
-            <Card title="All Shipments" bordered={false}>
-                <Table
-                    columns={shipmentColumns}
-                    dataSource={shipments}
-                    rowKey="id"
-                    loading={loading}
-                    pagination={{ pageSize: 10 }}
-                    size="middle"
-                    scroll={{ x: 800 }}
-                />
-            </Card>
-
             {/* ─── New Shipment Modal ─── */}
             <Modal
                 title="Add Order"

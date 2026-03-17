@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Table, Tag, Typography, Button, message, Card, Modal, Select } from 'antd';
-import { EyeOutlined, CompassOutlined } from '@ant-design/icons';
+import { Table, Tag, Typography, Button, message, Card, Modal, Select, Form, Input, InputNumber, Space, DatePicker, Row, Col } from 'antd';
+import { EyeOutlined, CompassOutlined, PlusOutlined, ClockCircleOutlined, SendOutlined, CheckCircleOutlined, ShoppingOutlined } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import AdvancedFilterBar from '../components/AdvancedFilterBar';
@@ -45,6 +45,16 @@ export default function MyShipments() {
     const [selectedVehicle, setSelectedVehicle] = useState(null);
     const [assigning, setAssigning] = useState(false);
 
+    // New Shipment State (for MSME)
+    const [createModalOpen, setCreateModalOpen] = useState(false);
+    const [form] = Form.useForm();
+    const [creating, setCreating] = useState(false);
+    const [volume, setVolume] = useState(0);
+    const [myCompany, setMyCompany] = useState(null);
+    const [otherCompanies, setOtherCompanies] = useState([]);
+    const [savedAddresses, setSavedAddresses] = useState([]);
+    const [loadingCompanies, setLoadingCompanies] = useState(false);
+
     const headers = { Authorization: `Bearer ${token}` };
     const basePath = user?.role === 'MSME' ? '/msme' : user?.role === 'DRIVER' ? '/driver' : '/admin';
 
@@ -86,10 +96,27 @@ export default function MyShipments() {
         }
     }, [user, token]);
 
+    const fetchCompanies = useCallback(async () => {
+        if (user?.role !== 'MSME') return;
+        setLoadingCompanies(true);
+        try {
+            const [meRes, othersRes, addrRes] = await Promise.all([
+                axios.get(`${API}/companies/me`, { headers }),
+                axios.get(`${API}/companies/others`, { headers }),
+                axios.get(`${API}/addresses`, { headers }),
+            ]);
+            setMyCompany(meRes.data);
+            setOtherCompanies(othersRes.data);
+            setSavedAddresses(addrRes.data);
+        } catch { message.warning('Could not load company data'); }
+        setLoadingCompanies(false);
+    }, [user, token]);
+
     useEffect(() => {
         fetchShipments(filters);
         fetchVehicles();
-    }, [fetchShipments, fetchVehicles]);
+        fetchCompanies();
+    }, [fetchShipments, fetchVehicles, fetchCompanies]);
 
     const onSelectChange = (newSelectedRowKeys) => {
         setSelectedRowKeys(newSelectedRowKeys);
@@ -150,6 +177,101 @@ export default function MyShipments() {
         }
     };
 
+    const recalcVolume = () => {
+        const l = form.getFieldValue('item_length') || 0;
+        const b = form.getFieldValue('item_width') || 0;
+        const h = form.getFieldValue('item_height') || 0;
+        setVolume(l * b * h);
+    };
+
+    const handleCreate = async (values) => {
+        setCreating(true);
+        try {
+            const selectedValue = values.vendor_location;
+            let selectedLoc = null;
+
+            if (typeof selectedValue === 'string' && selectedValue.startsWith('company-')) {
+                const compId = parseInt(selectedValue.replace('company-', ''));
+                const comp = otherCompanies.find(c => c.id === compId);
+                if (comp) selectedLoc = { address: comp.address, lat: comp.lat, lng: comp.lng, name: comp.name };
+            } else if (typeof selectedValue === 'string' && selectedValue.startsWith('addr-')) {
+                const addrId = parseInt(selectedValue.replace('addr-', ''));
+                const addr = savedAddresses.find(a => a.id === addrId);
+                if (addr) selectedLoc = { address: addr.address, lat: addr.lat, lng: addr.lng, name: addr.label };
+            }
+
+            if (!selectedLoc) {
+                message.error("Please select a valid location.");
+                setCreating(false);
+                return;
+            }
+            if (!myCompany || !myCompany.lat || !myCompany.lng) {
+                message.error("Your company has no registered location. Please ask your admin to update it.");
+                setCreating(false);
+                return;
+            }
+
+            const qty = values.item_qty || 1;
+            const weight = values.item_weight || 0;
+            const length = values.item_length || 0;
+            const width = values.item_width || 0;
+            const height = values.item_height || 0;
+            const itemVolume = length * width * height;
+            const totalVolume = itemVolume * qty;
+            const totalWeight = weight * qty;
+            const items = values.material_description ? [{
+                name: values.material_description, quantity: qty, weight, length, width, height
+            }] : [];
+
+            let finalPickupAddress, finalPickupContact, finalPickupPhone, finalPickupLat, finalPickupLng;
+            let finalDropAddress, finalDropContact, finalDropPhone, finalDropLat, finalDropLng;
+
+            if (values.order_type === 'Collection') {
+                finalPickupAddress = selectedLoc.address;
+                finalPickupContact = selectedLoc.name;
+                finalPickupPhone = '';
+                finalPickupLat = selectedLoc.lat;
+                finalPickupLng = selectedLoc.lng;
+
+                finalDropAddress = myCompany.address;
+                finalDropContact = myCompany.name;
+                finalDropPhone = '';
+                finalDropLat = myCompany.lat;
+                finalDropLng = myCompany.lng;
+            } else {
+                finalPickupAddress = myCompany.address;
+                finalPickupContact = myCompany.name;
+                finalPickupPhone = '';
+                finalPickupLat = myCompany.lat;
+                finalPickupLng = myCompany.lng;
+
+                finalDropAddress = selectedLoc.address;
+                finalDropContact = selectedLoc.name;
+                finalDropPhone = '';
+                finalDropLat = selectedLoc.lat;
+                finalDropLng = selectedLoc.lng;
+            }
+
+            await axios.post(`${API}/shipments`, {
+                pickup_address: finalPickupAddress, pickup_contact: finalPickupContact, pickup_phone: finalPickupPhone,
+                pickup_lat: finalPickupLat, pickup_lng: finalPickupLng,
+                drop_address: finalDropAddress, drop_contact: finalDropContact, drop_phone: finalDropPhone,
+                drop_lat: finalDropLat, drop_lng: finalDropLng,
+                total_weight: totalWeight, total_volume: totalVolume,
+                description: `PO: ${values.po_number || '-'} | Order Type: ${values.order_type || '-'} | Requested By: ${values.requested_by || '-'}`,
+                special_instructions: values.special_instructions, items,
+            }, { headers });
+            message.success('Order created successfully!');
+            setCreateModalOpen(false);
+            form.resetFields();
+            setVolume(0);
+            fetchShipments(filters);
+        } catch (err) {
+            message.error(err.response?.data?.detail || 'Failed to create order');
+        }
+        setCreating(false);
+    };
+
     const handleFilter = (newFilters) => {
         setFilters(newFilters);
         fetchShipments(newFilters);
@@ -183,18 +305,15 @@ export default function MyShipments() {
             )
         },
         {
-            title: 'Pickup',
-            key: 'pickup',
-            dataIndex: 'pickup_address',
+            title: 'Company',
+            key: 'company',
+            render: (_, r) => {
+                const isCollection = r.description && r.description.includes('Order Type: Collection');
+                // For Collection, vendor is the pickup location. For Delivery, vendor is the drop location.
+                return <span>{isCollection ? r.pickup_contact : r.drop_contact}</span>;
+            },
             ellipsis: true,
-            width: 200,
-        },
-        {
-            title: 'Drop',
-            key: 'drop',
-            dataIndex: 'drop_address',
-            ellipsis: true,
-            width: 200,
+            width: 250,
         },
         { title: 'Weight', dataIndex: 'total_weight', key: 'weight', render: v => `${v} kg`, width: 90 },
         { title: 'Volume', dataIndex: 'total_volume', key: 'volume', render: v => `${v} m³`, width: 90 },
@@ -218,7 +337,14 @@ export default function MyShipments() {
 
     return (
         <div>
-            <Title level={3} style={{ marginBottom: 24 }}>All Shipments</Title>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                <Title level={3} style={{ margin: 0 }}>All Shipments</Title>
+                {user?.role === 'MSME' && (
+                    <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModalOpen(true)}>
+                        New Shipment
+                    </Button>
+                )}
+            </div>
 
             <AdvancedFilterBar
                 onFilter={handleFilter}
@@ -280,6 +406,126 @@ export default function MyShipments() {
                     })}
                 />
                 {!selectedVehicle && <p style={{ marginTop: 8, color: '#999', fontSize: 12 }}>Only vehicles with assigned drivers are shown.</p>}
+            </Modal>
+
+            {/* ─── New Shipment Modal ─── */}
+            <Modal
+                title="Add Order"
+                open={createModalOpen}
+                onCancel={() => { setCreateModalOpen(false); form.resetFields(); setVolume(0); }}
+                footer={null}
+                width={680}
+            >
+                <Form form={form} layout="vertical" onFinish={handleCreate}
+                    initialValues={{ requested_by: user?.name || '' }}>
+
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item noStyle shouldUpdate={(prev, cur) => prev.order_type !== cur.order_type}>
+                                {({ getFieldValue }) => {
+                                    const isCollection = getFieldValue('order_type') === 'Collection';
+                                    return (
+                                        <Form.Item name="vendor_location" label={isCollection ? "Pickup Location" : "Drop-off Location"}
+                                            rules={[{ required: true, message: 'Please select a location' }]}>
+                                            <Select
+                                                placeholder={loadingCompanies ? 'Loading...' : 'Select location'}
+                                                loading={loadingCompanies}
+                                                showSearch
+                                                filterOption={(input, option) => (option.label || '').toLowerCase().includes(input.toLowerCase())}
+                                                notFoundContent={otherCompanies.length === 0 && savedAddresses.length === 0 && !loadingCompanies ? 'No locations available' : null}
+                                                options={[
+                                                    ...(otherCompanies.length > 0 ? [{
+                                                        label: 'Companies',
+                                                        options: otherCompanies.map(c => ({ label: c.name, value: `company-${c.id}` }))
+                                                    }] : []),
+                                                    ...(savedAddresses.length > 0 ? [{
+                                                        label: 'Saved Locations',
+                                                        options: savedAddresses.map(a => ({ label: a.label, value: `addr-${a.id}` }))
+                                                    }] : []),
+                                                ]}
+                                            />
+                                        </Form.Item>
+                                    );
+                                }}
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item name="order_date" label="Date" rules={[{ required: true, message: 'Please select a date' }]}>
+                                <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item name="order_type" label="Order Type" rules={[{ required: true, message: 'Select order type' }]}>
+                                <Select placeholder="Select type" options={[
+                                    { label: 'Collection', value: 'Collection' },
+                                    { label: 'Delivery', value: 'Delivery' },
+                                ]} onChange={() => form.resetFields(['vendor_location'])} />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item name="po_number" label="PO Number">
+                                <Input placeholder="Enter PO number" />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item name="material_description" label="Material Description" rules={[{ required: true, message: 'Enter material description' }]}>
+                                <Input placeholder="Describe the material" />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item name="item_qty" label="Quantity" rules={[{ required: true, message: 'Enter quantity' }]}>
+                                <InputNumber min={1} style={{ width: '100%' }} placeholder="e.g. 10" />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item name="item_weight" label="Weight (kgs)" rules={[{ required: true, message: 'Enter weight' }]}>
+                                <InputNumber min={0} style={{ width: '100%' }} placeholder="e.g. 50" />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item name="requested_by" label="Requested By">
+                                <Input placeholder="Your name" />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+
+                    <div style={{ background: '#f5f5f5', border: '1px solid #e0e0e0', borderRadius: 6, padding: '10px 16px', textAlign: 'center', marginBottom: 16, fontWeight: 500 }}>
+                        Volume: {isNaN(volume) || volume === 0 ? '0' : volume.toFixed(4)} cubic meter
+                    </div>
+
+                    <Row gutter={16}>
+                        <Col span={8}>
+                            <Form.Item name="item_length" label="Length (m)" rules={[{ required: true, message: 'Required' }]}>
+                                <InputNumber min={0} style={{ width: '100%' }} onChange={recalcVolume} placeholder="e.g. 1.2" />
+                            </Form.Item>
+                        </Col>
+                        <Col span={8}>
+                            <Form.Item name="item_width" label="Breadth (m)" rules={[{ required: true, message: 'Required' }]}>
+                                <InputNumber min={0} style={{ width: '100%' }} onChange={recalcVolume} placeholder="e.g. 0.8" />
+                            </Form.Item>
+                        </Col>
+                        <Col span={8}>
+                            <Form.Item name="item_height" label="Height (m)" rules={[{ required: true, message: 'Required' }]}>
+                                <InputNumber min={0} style={{ width: '100%' }} onChange={recalcVolume} placeholder="e.g. 0.5" />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+
+                    <Form.Item style={{ marginTop: 8 }}>
+                        <Button type="primary" htmlType="submit" loading={creating} block size="large">
+                            Submit Order
+                        </Button>
+                    </Form.Item>
+                </Form>
             </Modal>
         </div>
     );

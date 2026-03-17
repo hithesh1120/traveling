@@ -16,7 +16,7 @@ const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const COLORS = ['#cf1322', '#fa541c', '#fa8c16', '#ad2102'];
 
-export default function Analytics() {
+export default function Analytics({ embedded = false }) {
     const { token } = useAuth();
     const [fleetAnalytics, setFleetAnalytics] = useState({});
     const [shipmentAnalytics, setShipmentAnalytics] = useState({});
@@ -93,40 +93,44 @@ export default function Analytics() {
 
     return (
         <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                <Title level={3} style={{ marginBottom: 0 }}>Analytics Dashboard</Title>
-                <Button type="primary" icon={<DownloadOutlined />} onClick={handleExport}>
-                    Export Report (CSV)
-                </Button>
-            </div>
+            {!embedded && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                    <Title level={3} style={{ marginBottom: 0 }}>Analytics Dashboard</Title>
+                    <Button type="primary" icon={<DownloadOutlined />} onClick={handleExport}>
+                        Export Report (CSV)
+                    </Button>
+                </div>
+            )}
 
             {/* KPIs */}
-            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-                <Col xs={12} sm={6} md={3}>
-                    <Card variant="borderless"><Statistic title="Total" value={shipmentAnalytics.total} prefix={<SendOutlined />} /></Card>
-                </Col>
-                <Col xs={12} sm={6} md={3}>
-                    <Card variant="borderless"><Statistic title="Pending" value={shipmentAnalytics.pending} /></Card>
-                </Col>
-                <Col xs={12} sm={6} md={3}>
-                    <Card variant="borderless"><Statistic title="Active" value={shipmentAnalytics.active} /></Card>
-                </Col>
-                <Col xs={12} sm={6} md={3}>
-                    <Card variant="borderless"><Statistic title="Delivered" value={shipmentAnalytics.delivered} /></Card>
-                </Col>
-                <Col xs={12} sm={6} md={3}>
-                    <Card variant="borderless"><Statistic title="Confirmed" value={shipmentAnalytics.confirmed} /></Card>
-                </Col>
-                <Col xs={12} sm={6} md={3}>
-                    <Card variant="borderless"><Statistic title="Utilization" value={fleetAnalytics.utilization_rate} suffix="%" prefix={<CarOutlined />} /></Card>
-                </Col>
-                <Col xs={12} sm={6} md={3}>
-                    <Card variant="borderless"><Statistic title="Today" value={shipmentAnalytics.today} prefix={<BarChartOutlined />} /></Card>
-                </Col>
-                <Col xs={12} sm={6} md={3}>
-                    <Card variant="borderless"><Statistic title="Rate" value={shipmentAnalytics.completion_rate} suffix="%" prefix={<RiseOutlined />} /></Card>
-                </Col>
-            </Row>
+            {!embedded && (
+                <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+                    <Col xs={12} sm={6} md={3}>
+                        <Card variant="borderless"><Statistic title="Total" value={shipmentAnalytics.total} prefix={<SendOutlined />} /></Card>
+                    </Col>
+                    <Col xs={12} sm={6} md={3}>
+                        <Card variant="borderless"><Statistic title="Pending" value={shipmentAnalytics.pending} /></Card>
+                    </Col>
+                    <Col xs={12} sm={6} md={3}>
+                        <Card variant="borderless"><Statistic title="Active" value={shipmentAnalytics.active} /></Card>
+                    </Col>
+                    <Col xs={12} sm={6} md={3}>
+                        <Card variant="borderless"><Statistic title="Delivered" value={shipmentAnalytics.delivered} /></Card>
+                    </Col>
+                    <Col xs={12} sm={6} md={3}>
+                        <Card variant="borderless"><Statistic title="Confirmed" value={shipmentAnalytics.confirmed} /></Card>
+                    </Col>
+                    <Col xs={12} sm={6} md={3}>
+                        <Card variant="borderless"><Statistic title="Utilization" value={fleetAnalytics.utilization_rate} suffix="%" prefix={<CarOutlined />} /></Card>
+                    </Col>
+                    <Col xs={12} sm={6} md={3}>
+                        <Card variant="borderless"><Statistic title="Today" value={shipmentAnalytics.today} prefix={<BarChartOutlined />} /></Card>
+                    </Col>
+                    <Col xs={12} sm={6} md={3}>
+                        <Card variant="borderless"><Statistic title="Rate" value={shipmentAnalytics.completion_rate} suffix="%" prefix={<RiseOutlined />} /></Card>
+                    </Col>
+                </Row>
+            )}
 
             <Row gutter={[24, 24]}>
                 {/* Visualizations */}

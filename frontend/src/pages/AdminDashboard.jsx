@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import AssignOrdersModal from '../components/AssignOrdersModal';
+import Analytics from './Analytics';
 import {
     Card,
     Row,
@@ -109,44 +110,6 @@ export default function AdminDashboard() {
         },
     ];
 
-    const moduleCards = [
-        {
-            title: 'Operations Monitor',
-            desc: 'Real-time tracking & alerts',
-            icon: <ClockCircleOutlined style={{ fontSize: 24, color: '#000000' }} />,
-            path: '/admin/operations',
-            color: '#f5f5f5',
-        },
-        {
-            title: 'System Users',
-            desc: 'RBAC & Role Management',
-            icon: <TeamOutlined style={{ fontSize: 24, color: '#000000' }} />,
-            path: '/admin/users',
-            color: '#f5f5f5',
-        },
-        {
-            title: 'Reports & Analytics',
-            desc: 'Performance metrics',
-            icon: <AppstoreOutlined style={{ fontSize: 24, color: '#000000' }} />,
-            path: '/admin/analytics',
-            color: '#f5f5f5',
-        },
-        {
-            title: 'All Shipments',
-            desc: 'Track & manage shipments',
-            icon: <CarOutlined style={{ fontSize: 24, color: '#000000' }} />,
-            path: '/admin/shipments',
-            color: '#f5f5f5',
-        },
-        {
-            title: 'Vehicle Fleet',
-            desc: 'Manage vehicles',
-            icon: <CarOutlined style={{ fontSize: 24, color: '#000000' }} />,
-            path: '/admin/vehicles',
-            color: '#f5f5f5',
-        },
-    ];
-
     const getTimelineColor = (action) => {
         if (action?.includes('GATE')) return 'orange';
         if (action?.includes('RECEIVED') || action?.includes('CLOSED')) return 'green';
@@ -181,30 +144,8 @@ export default function AdminDashboard() {
                     <Title level={3} style={{ margin: 0 }}>Operations Overview</Title>
                     <Text type="secondary">Real-time logistics operations monitor</Text>
                 </div>
-                <Space>
-                    <Button icon={<ReloadOutlined />} onClick={fetchDashboardData}>Refresh</Button>
-                    <Dropdown menu={{
-                        items: [
-                            {
-                                key: 'assign',
-                                label: 'Assign Orders',
-                                icon: <PlusCircleOutlined />,
-                                onClick: () => { setAssignMode('PENDING'); setAssignModalOpen(true); }
-                            },
-                            {
-                                key: 'reassign',
-                                label: 'Reassign Orders',
-                                icon: <SwapOutlined />,
-                                onClick: () => { setAssignMode('ASSIGNED'); setAssignModalOpen(true); }
-                            }
-                        ]
-                    }}>
-                        <Button type="primary" icon={<ArrowRightOutlined />}>
-                            Manage Shipments <DownOutlined />
-                        </Button>
-                    </Dropdown>
-                </Space>
             </div>
+
 
             <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
                 {statCards.map((s, i) => (
@@ -238,46 +179,14 @@ export default function AdminDashboard() {
             </Row>
 
             <Row gutter={[24, 24]}>
-                <Col xs={24} lg={16}>
-                    <Card title="Management Modules" bordered={false}>
-                        <Row gutter={[16, 16]}>
-                            {moduleCards.map((m, i) => (
-                                <Col xs={24} sm={8} key={i}>
-                                    <Link to={m.path} style={{ textDecoration: 'none' }}>
-                                        <Card
-                                            hoverable
-                                            size="small"
-                                            bodyStyle={{ padding: 20 }}
-                                        >
-                                            <div
-                                                style={{
-                                                    width: 44,
-                                                    height: 44,
-                                                    borderRadius: '50%',
-                                                    background: m.color,
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    marginBottom: 12,
-                                                }}
-                                            >
-                                                {m.icon}
-                                            </div>
-                                            <Text strong style={{ fontSize: 14 }}>{m.title}</Text>
-                                            <br />
-                                            <Text type="secondary" style={{ fontSize: 12 }}>{m.desc}</Text>
-                                        </Card>
-                                    </Link>
-                                </Col>
-                            ))}
-                        </Row>
-                    </Card>
+                <Col xs={24} lg={24}>
+                    <Analytics embedded={true} />
                 </Col>
 
-                <Col xs={24} lg={8}>
+                <Col xs={24} lg={24}>
                     <Card
                         title="Recent Activity"
-                        extra={<Tag color="#facc15">Live Feed</Tag>}
+                        extra={<Tag color="#facc15" style={{ color: '#000' }}>Live Feed</Tag>}
                         bordered={false}
                         bodyStyle={{ maxHeight: 450, overflowY: 'auto', padding: '12px 20px' }}
                     >

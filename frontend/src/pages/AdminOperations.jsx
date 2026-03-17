@@ -49,15 +49,11 @@ export default function AdminOperations() {
     const [vehicles, setVehicles] = useState([]);
     const [drivers, setDrivers] = useState([]);
     const [vehLoading, setVehLoading] = useState(true);
-    const [vehModalOpen, setVehModalOpen] = useState(false);
-    const [editingVehicle, setEditingVehicle] = useState(null);
-    const [vehForm] = Form.useForm();
 
-    // ── Location State ──
-    const [locations, setLocations] = useState([]);
-    const [locLoading, setLocLoading] = useState(false);
-    const [locModalOpen, setLocModalOpen] = useState(false);
-    const [locForm] = Form.useForm();
+    // ── Address labels (for company name lookup) ──
+    const [addressMap, setAddressMap] = useState({});
+
+
 
     // ═══════════════════════════════════════════════
     // FETCH FUNCTIONS
@@ -92,35 +88,25 @@ export default function AdminOperations() {
         setVehLoading(false);
     }, [token]);
 
-    const fetchLocations = useCallback(async () => {
-        setLocLoading(true);
+
+
+    const fetchAddresses = useCallback(async () => {
         try {
             const res = await axios.get(`${API}/addresses`, { headers });
-            setLocations(res.data);
-        } catch { message.error('Failed to load locations'); }
-        setLocLoading(false);
+            // Build a map: address text => label for fast lookup
+            const map = {};
+            res.data.forEach(a => { if (a.address) map[a.address.trim()] = a.label; });
+            setAddressMap(map);
+        } catch { /* non-critical, skip silently */ }
     }, [token]);
 
     useEffect(() => {
         fetchShipments(filters);
         fetchVehiclesAndDrivers();
-        fetchLocations();
+        fetchAddresses();
     }, []);
 
-    // Effect to open modals if action query param is present
-    useEffect(() => {
-        const action = searchParams.get('action');
-        if (action === 'add-vehicle') {
-            setEditingVehicle(null);
-            vehForm.resetFields();
-            setVehModalOpen(true);
-            setSearchParams({}); // Clear it so it doesn't retrigger
-        } else if (action === 'add-location') {
-            locForm.resetFields();
-            setLocModalOpen(true);
-            setSearchParams({}); // Clear it so it doesn't retrigger
-        }
-    }, [searchParams, setSearchParams, vehForm, locForm]);
+
 
     // ═══════════════════════════════════════════════
     // SHIPMENT HANDLERS
@@ -160,47 +146,9 @@ export default function AdminOperations() {
         });
     };
 
-    // ═══════════════════════════════════════════════
-    // VEHICLE HANDLERS
-    // ═══════════════════════════════════════════════
-    const handleVehicleSave = async (values) => {
-        try {
-            if (editingVehicle) {
-                await axios.put(`${API}/vehicles/${editingVehicle.id}`, values, { headers });
-                message.success('Vehicle updated');
-            } else {
-                await axios.post(`${API}/vehicles`, values, { headers });
-                message.success('Vehicle created');
-            }
-            setVehModalOpen(false); vehForm.resetFields(); setEditingVehicle(null);
-            fetchVehiclesAndDrivers();
-        } catch (err) { message.error(err.response?.data?.detail || 'Failed'); }
-    };
 
-    const openVehEdit = (v) => { setEditingVehicle(v); vehForm.setFieldsValue(v); setVehModalOpen(true); };
-    const openVehCreate = () => { setEditingVehicle(null); vehForm.resetFields(); setVehModalOpen(true); };
 
-    // ═══════════════════════════════════════════════
-    // LOCATION HANDLERS
-    // ═══════════════════════════════════════════════
-    const handleAddLocation = async (values) => {
-        try {
-            const payload = { ...values, is_global: true };
-            await axios.post(`${API}/addresses`, payload, { headers });
-            message.success('Location added');
-            setLocModalOpen(false); locForm.resetFields(); fetchLocations();
-        } catch { message.error('Failed to add location'); }
-    };
 
-    const handleDeleteLocation = (id) => {
-        Modal.confirm({
-            title: 'Delete location?', content: 'This cannot be undone.',
-            onOk: async () => {
-                try { await axios.delete(`${API}/addresses/${id}`, { headers }); message.success('Deleted'); fetchLocations(); }
-                catch { message.error('Failed'); }
-            }
-        });
-    };
 
     // ═══════════════════════════════════════════════
     // COLUMNS
@@ -219,10 +167,14 @@ export default function AdminOperations() {
             }
         },
         {
-            title: 'Pickup', dataIndex: 'pickup_address', key: 'pickup', ellipsis: true, width: 180,
+            title: 'Pickup', dataIndex: 'pickup_address', key: 'pickup',
+            ellipsis: true, width: 200,
+            render: v => <span style={{ fontSize: 13 }}>{v || '—'}</span>
         },
         {
-            title: 'Drop', dataIndex: 'drop_address', key: 'drop', ellipsis: true, width: 180,
+            title: 'Drop', dataIndex: 'drop_address', key: 'drop',
+            ellipsis: true, width: 200,
+            render: v => <span style={{ fontSize: 13 }}>{v || '—'}</span>
         },
         { title: 'Weight', dataIndex: 'total_weight', key: 'weight', render: v => `${v} kg`, width: 90 },
         { title: 'Volume', dataIndex: 'total_volume', key: 'volume', render: v => `${v} m³`, width: 90 },
@@ -247,66 +199,45 @@ export default function AdminOperations() {
     const vehicleColumns = [
         ...(selectedRowKeys.length > 0 ? [{
             title: '',
-            key: 'assign',
-            width: 50,
-            render: (_, r) => (
-                <Checkbox
-                    disabled={!r.current_driver_id}
-                    onChange={(e) => {
-                        if (e.target.checked) {
-                            handleAssignToVehicle(r.id);
-                        }
-                    }}
-                    checked={false}
-                />
-            )
+            key: 'select',
+            width: 48,
+            render: (_, r) => {
+                const noDriver = !r.current_driver_id;
+                const tooltipMsg = noDriver
+                    ? 'No driver assigned to this vehicle'
+                    : `Dispatch ${selectedRowKeys.length} shipment(s) to ${r.name}`;
+                return (
+                    <Tooltip title={tooltipMsg}
+                        overlayInnerStyle={{ color: '#262626', background: '#fff' }}
+                        overlayStyle={{ maxWidth: 240 }}
+                    >
+                        <Checkbox
+                            disabled={noDriver}
+                            checked={false}
+                            onChange={(e) => {
+                                if (e.target.checked) handleAssignToVehicle(r.id);
+                            }}
+                        />
+                    </Tooltip>
+                );
+            }
         }] : []),
         { title: 'Name', dataIndex: 'name', key: 'name', render: t => <Space><CarOutlined /><Text strong>{t}</Text></Space> },
         { title: 'Plate #', dataIndex: 'plate_number', key: 'plate', render: t => <Tag>{t}</Tag> },
         {
             title: 'Status', dataIndex: 'status', key: 'status',
-            render: s => <Tag color={VEHICLE_STATUS_COLORS[s]}>{s.replace('_', ' ')}</Tag>
+            render: s => {
+                const colorMap = { AVAILABLE: 'success', ON_TRIP: 'processing', MAINTENANCE: 'warning', INACTIVE: 'default' };
+                return <Tag color={colorMap[s] || 'default'}>{s.replace('_', ' ')}</Tag>;
+            }
         },
-
         {
             title: 'Driver', dataIndex: 'current_driver_id', key: 'driver',
-            render: did => drivers.find(d => d.id === did)?.name || '-'
-        },
-        {
-            title: '', key: 'actions', width: 80,
-            render: (_, r) => (
-                <Space size={4}>
-                    <Tooltip title="Edit"><Button size="small" icon={<EditOutlined />} onClick={() => openVehEdit(r)} /></Tooltip>
-                </Space>
-            ),
+            render: did => drivers.find(d => d.id === did)?.name || <Text type="secondary">No driver</Text>
         },
     ];
 
-    const locationColumns = [
-        {
-            title: 'Label', key: 'label',
-            render: (_, r) => (
-                <Space>
-                    <span style={{ fontWeight: 500 }}>{r.label}</span>
-                    {r.is_global && <Tag color="gold" icon={<GlobalOutlined />}>Global</Tag>}
-                </Space>
-            )
-        },
-        { title: 'Address', dataIndex: 'address', key: 'address' },
-        {
-            title: 'Coordinates', key: 'coords',
-            render: (_, r) => r.lat && r.lng ? (
-                <Tag icon={<EnvironmentOutlined />}>{r.lat.toFixed(4)}, {r.lng.toFixed(4)}</Tag>
-            ) : <span style={{ color: '#ccc' }}>N/A</span>
-        },
-        {
-            title: 'Actions', key: 'actions', width: 80,
-            render: (_, r) => (
-                <Button icon={<DeleteOutlined />} size="small" danger onClick={() => handleDeleteLocation(r.id)}
-                    disabled={r.is_global && user?.role !== 'ADMIN'} />
-            )
-        }
-    ];
+
 
     // ═══════════════════════════════════════════════
     // RENDER
@@ -321,8 +252,11 @@ export default function AdminOperations() {
             <AdvancedFilterBar onFilter={handleFilter} statusOptions={STATUS_OPTIONS} />
 
             {selectedRowKeys.length > 0 && (
-                <div style={{ marginBottom: 16, padding: '8px 16px', background: '#fffbeb', border: '1px solid #93c5fd', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontWeight: 500 }}>Selected {selectedRowKeys.length} shipment(s). Check the box on the left of a vehicle below to dispatch.</span>
+                <div style={{ marginBottom: 16, padding: '10px 16px', background: '#262626', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontWeight: 500, color: '#fff' }}>
+                        {selectedRowKeys.length} shipment(s) selected — check a vehicle below to dispatch them.
+                    </span>
+                    <Button size="small" type="text" style={{ color: '#facc15' }} onClick={() => setSelectedRowKeys([])}>Clear</Button>
                 </div>
             )}
 
@@ -339,12 +273,17 @@ export default function AdminOperations() {
                 />
             </Card>
 
-            {/* ─── SECTION 2: VEHICLES ─── */}
+            {/* ─── SECTION 2: VEHICLES (for assignment) ─── */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <Title level={3} style={{ margin: 0 }}>Vehicle Fleet</Title>
+                {selectedRowKeys.length > 0 && (
+                    <span style={{ color: '#8c8c8c', fontSize: 13 }}>
+                        ✓ Check a vehicle below to assign the selected shipments
+                    </span>
+                )}
             </div>
 
-            <Card bordered={false} style={{ marginBottom: 32 }}>
+            <Card bordered={false}>
                 <Table
                     columns={vehicleColumns}
                     dataSource={vehicles}
@@ -352,106 +291,9 @@ export default function AdminOperations() {
                     loading={vehLoading}
                     pagination={false}
                     size="middle"
-                    scroll={{ x: 1100 }}
+                    scroll={{ x: 800 }}
                 />
             </Card>
-
-            {/* ─── SECTION 3: SAVED LOCATIONS ─── */}
-            <Card
-                title={<Title level={4} style={{ margin: 0 }}>Saved Locations</Title>}
-                bordered={false}
-            >
-                <Table
-                    columns={locationColumns}
-                    dataSource={locations}
-                    rowKey="id"
-                    loading={locLoading}
-                    pagination={false}
-                    size="middle"
-                />
-            </Card>
-
-            {/* ─── MODALS ─── */}
-
-
-
-            {/* Add/Edit Vehicle Modal */}
-            <Modal title={editingVehicle ? 'Edit Vehicle' : 'Add Vehicle'} open={vehModalOpen}
-                onCancel={() => { setVehModalOpen(false); setEditingVehicle(null); vehForm.resetFields(); }}
-                footer={null} width={540}>
-                <Form form={vehForm} layout="vertical" onFinish={handleVehicleSave}>
-                    <Form.Item name="name" label="Vehicle Name" rules={[{ required: true }]}>
-                        <Input placeholder="e.g. Truck-01" />
-                    </Form.Item>
-                    <Form.Item name="plate_number" label="Plate Number" rules={[{ required: true }]}>
-                        <Input placeholder="e.g. KA-01-AB-1234" />
-                    </Form.Item>
-                    <Form.Item name="vehicle_type" initialValue="TRUCK" hidden><Input /></Form.Item>
-                    <Space style={{ width: '100%' }} size="middle">
-                        <Form.Item name="weight_capacity" label="Weight Capacity (kg)" initialValue={1000}>
-                            <InputNumber min={0} style={{ width: '100%' }} />
-                        </Form.Item>
-                        <Form.Item name="volume_capacity" label="Volume Capacity (m³)" initialValue={10}>
-                            <InputNumber min={0} style={{ width: '100%' }} />
-                        </Form.Item>
-                    </Space>
-                    <Form.Item name="current_driver_id" label="Assigned Driver">
-                        <Select allowClear placeholder="Select driver" options={
-                            drivers.map(d => {
-                                const assignedVeh = vehicles.find(v => v.current_driver_id === d.id);
-                                const isOther = assignedVeh && assignedVeh.id !== editingVehicle?.id;
-                                return {
-                                    value: d.id,
-                                    label: `${d.name} (${d.email}) ${isOther ? `[Assigned to ${assignedVeh.plate_number}]` : ''}`,
-                                    disabled: isOther
-                                };
-                            })
-                        } />
-                    </Form.Item>
-                    {editingVehicle && (
-                        <Form.Item name="status" label="Status">
-                            <Select options={Object.entries(VEHICLE_STATUS_COLORS).map(([k]) => ({ value: k, label: k.replace('_', ' ') }))} />
-                        </Form.Item>
-                    )}
-                    <Form.Item>
-                        <Button type="primary" htmlType="submit" block size="large">
-                            {editingVehicle ? 'Update Vehicle' : 'Create Vehicle'}
-                        </Button>
-                    </Form.Item>
-                </Form>
-            </Modal>
-
-            {/* Add Location Modal */}
-            <Modal title="Add New Location" open={locModalOpen} onCancel={() => setLocModalOpen(false)} footer={null}>
-                <Form form={locForm} layout="vertical" onFinish={handleAddLocation}>
-                    <Form.Item name="label" label="Label (e.g. Warehouse A)" rules={[{ required: true }]}>
-                        <Input placeholder="Friendly name" />
-                    </Form.Item>
-                    <Form.Item name="address" label="Full Address" rules={[{ required: true }]}>
-                        <Input.TextArea rows={2} placeholder="Complete address" />
-                    </Form.Item>
-                    <Space style={{ display: 'flex', marginBottom: 8 }} align="baseline">
-                        <Form.Item name="lat" label="Latitude" rules={[{ required: true }]}>
-                            <InputNumber style={{ width: 140 }} precision={6} />
-                        </Form.Item>
-                        <Form.Item name="lng" label="Longitude" rules={[{ required: true }]}>
-                            <InputNumber style={{ width: 140 }} precision={6} />
-                        </Form.Item>
-                    </Space>
-                    <Space style={{ display: 'flex', marginBottom: 24 }} align="baseline">
-                        <Form.Item name="contact" label="Contact Person">
-                            <Input style={{ width: 140 }} />
-                        </Form.Item>
-                        <Form.Item name="phone" label="Phone Number">
-                            <Input style={{ width: 140 }} />
-                        </Form.Item>
-                    </Space>
-                    <div style={{ textAlign: 'right', marginTop: 16 }}>
-                        <Button onClick={() => setLocModalOpen(false)} style={{ marginRight: 8 }}>Cancel</Button>
-                        <Button type="primary" htmlType="submit">Save Location</Button>
-                    </div>
-                </Form>
-            </Modal>
         </div>
     );
 }

@@ -97,7 +97,7 @@ export default function Signup() {
                         You can now log in as Admin to manage your team — create users and drivers from the Users panel.
                     </Text>
                     <Button type="primary" size="large" onClick={() => navigate('/login')}
-                        style={{ background: '#facc15', borderColor: '#facc15', height: 48, paddingInline: 40, fontWeight: 600 }}>
+                        style={{ background: '#facc15', borderColor: '#facc15', height: 48, paddingInline: 40, fontWeight: 600, color: '#000' }}>
                         Go to Login
                     </Button>
                 </div>
@@ -259,7 +259,7 @@ export default function Signup() {
                             onClick={handleStep1}
                             block
                             icon={<ArrowRightOutlined />}
-                            style={{ height: 48, fontWeight: 600, fontSize: 15, marginTop: 8, background: '#facc15', borderColor: '#facc15' }}
+                            style={{ height: 48, fontWeight: 600, fontSize: 15, marginTop: 8, background: '#facc15', borderColor: '#facc15', color: '#000' }}
                         >
                             Continue to Location
                         </Button>
@@ -297,7 +297,7 @@ export default function Signup() {
                                 icon={<AimOutlined />}
                                 type="primary"
                                 onClick={handleGo}
-                                style={{ height: 32, background: '#facc15', borderColor: '#facc15' }}
+                                style={{ height: 32, background: '#facc15', borderColor: '#facc15', color: '#000' }}
                             >
                                 Go
                             </Button>
@@ -333,7 +333,7 @@ export default function Signup() {
                                 Back
                             </Button>
                             <Button type="primary" onClick={handleSubmit} loading={loading} block
-                                style={{ height: 48, flex: 2, fontWeight: 600, fontSize: 15, background: '#facc15', borderColor: '#facc15' }}>
+                                style={{ height: 48, flex: 2, fontWeight: 600, fontSize: 15, background: '#facc15', borderColor: '#facc15', color: '#000' }}>
                                 {loading ? 'Registering Company...' : 'Register Company'}
                             </Button>
                         </div>

@@ -26,6 +26,7 @@ import DeliveryReceipt from './pages/DeliveryReceipt';
 import CargoVisualizer from './pages/CargoVisualizer';
 import NotificationsPage from './pages/NotificationsPage';
 import TrackOrders from './pages/TrackOrders';
+import Vehicles from './pages/Vehicles';
 import { AuthProvider } from './context/AuthContext';
 import { ModalProvider } from './context/ModalContext';
 
@@ -36,6 +37,7 @@ function App() {
         token: {
           colorPrimary: '#facc15',
           colorLink: '#facc15',
+          colorTextLightSolid: '#000',
           borderRadius: 8,
         },
       }}
@@ -56,14 +58,14 @@ function App() {
                       <Route path="/" element={<AdminDashboard />} />
                       <Route path="users" element={<UserManagement />} />
                       <Route path="operations" element={<AdminOperations />} />
-                      <Route path="vehicles" element={<VehicleManagement />} />
                       <Route path="zones" element={<ZoneManagement />} />
                       <Route path="analytics" element={<Analytics />} />
                       <Route path="reports" element={<Reports />} />
                       <Route path="track-orders" element={<TrackOrders />} />
                       <Route path="shipments" element={<AdminOperations />} />
                       <Route path="shipments/:id" element={<ShipmentDetail />} />
-                      <Route path="locations" element={<AdminOperations />} />
+                      <Route path="companies" element={<SavedLocations />} />
+                      <Route path="vehicles" element={<Vehicles />} />
                       <Route path="track/:id" element={<RouteTracking />} />
                       <Route path="cargo-3d" element={<CargoVisualizer />} />
                       <Route path="notifications" element={<NotificationsPage />} />

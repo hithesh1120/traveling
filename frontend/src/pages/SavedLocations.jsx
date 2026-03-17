@@ -79,38 +79,31 @@ export default function SavedLocations() {
 
     const columns = [
         {
-            title: 'Label', key: 'label',
+            title: 'Company', key: 'label',
             render: (_, r) => (
-                <Space>
-                    <span style={{ fontWeight: 500 }}>{r.label}</span>
-                    {r.is_global && <Tag color="gold" icon={<GlobalOutlined />}>Global</Tag>}
-                </Space>
+                <span style={{ fontWeight: 500 }}>{r.label}</span>
             )
         },
         { title: 'Address', dataIndex: 'address', key: 'address' },
         {
-            title: 'Coordinates', key: 'coords',
-            render: (_, r) => r.lat && r.lng ? (
-                <Tag icon={<EnvironmentOutlined />}>{r.lat.toFixed(4)}, {r.lng.toFixed(4)}</Tag>
-            ) : <span style={{ color: '#ccc' }}>N/A</span>
+            title: 'Contact Details', key: 'contact',
+            render: (_, r) => (
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span>{r.label.split(' ')[0]} Manager</span>
+                    <span style={{ color: '#666', fontSize: '12px' }}>+91 98765 43210</span>
+                </div>
+            )
         },
         {
-            title: 'Actions', key: 'actions',
-            render: (_, r) => {
-                // Allow delete if owner OR admin
-                // (Models enforcement: admins can delete global, users can delete own)
-                // We'll trust backend to reject if not allowed, but UI can hide if needed.
-                // For now, show buttons for all, backend handles auth.
-                return (
-                    <Space>
-                        {/* <Button icon={<EditOutlined />} size="small" onClick={() => openEdit(r)} disabled={r.is_global && user.role !== 'ADMIN'} /> */}
-                        <Button icon={<DeleteOutlined />} size="small" danger onClick={() => handleDelete(r.id)}
-                            disabled={r.is_global && user.role !== 'ADMIN'} />
-                    </Space>
-                );
-            }
+            title: 'Actions', key: 'actions', width: 80,
+            render: (_, r) => (
+                <Button icon={<DeleteOutlined />} size="small" danger onClick={() => handleDelete(r.id)} />
+            )
         }
     ];
+
+    // Remove Actions column for MSME users
+    const filteredColumns = user?.role === 'ADMIN' ? columns : columns.filter(c => c.key !== 'actions');
 
     return (
         <div>
@@ -125,7 +118,7 @@ export default function SavedLocations() {
 
             <Card bordered={false}>
                 <Table
-                    columns={columns}
+                    columns={filteredColumns}
                     dataSource={locations}
                     rowKey="id"
                     loading={loading}
@@ -140,8 +133,8 @@ export default function SavedLocations() {
                 footer={null}
             >
                 <Form form={form} layout="vertical" onFinish={handleAddEdit}>
-                    <Form.Item name="label" label="Label (e.g. Warehouse A)" rules={[{ required: true }]}>
-                        <Input placeholder="Friendly name for this location" />
+                    <Form.Item name="label" label="Company Name" rules={[{ required: true }]}>
+                        <Input placeholder="e.g. Sanathnagar Industrial Park" />
                     </Form.Item>
                     <Form.Item name="address" label="Full Address" rules={[{ required: true }]}>
                         <Input.TextArea rows={2} placeholder="Complete address" />
