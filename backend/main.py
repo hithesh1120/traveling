@@ -629,7 +629,13 @@ async def update_user_status(
     db: AsyncSession = Depends(get_db), 
     admin: models.User = Depends(get_current_admin)
 ):
-    result = await db.execute(select(models.User).where(models.User.id == user_id))
+    # Scope to the admin's own company to prevent cross-company modifications
+    result = await db.execute(
+        select(models.User).where(
+            models.User.id == user_id,
+            models.User.company_id == admin.company_id
+        )
+    )
     user = result.scalars().first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -654,12 +660,20 @@ async def export_shipments_csv(
     db: AsyncSession = Depends(get_db),
     admin: models.User = Depends(get_current_admin)
 ):
-    # Base query
+    # Base query — always scoped to admin's company
     query = select(models.Shipment).options(
         selectinload(models.Shipment.sender),
         selectinload(models.Shipment.assigned_vehicle),
         selectinload(models.Shipment.assigned_driver)
     ).order_by(models.Shipment.created_at.desc())
+
+    # Scope to company — fetch all user IDs that belong to this company
+    if admin.company_id:
+        co_users = await db.execute(
+            select(models.User.id).where(models.User.company_id == admin.company_id)
+        )
+        co_user_ids = [r[0] for r in co_users.fetchall()]
+        query = query.where(models.Shipment.sender_id.in_(co_user_ids))
 
     # Apply Filters
     if status:
@@ -742,13 +756,19 @@ async def get_audit_logs(
     db: AsyncSession = Depends(get_db),
     admin: models.User = Depends(get_current_admin)
 ):
-    result = await db.execute(
+    # Scope audit logs to the admin's company by joining through the user
+    query = (
         select(models.AuditLog)
         .options(selectinload(models.AuditLog.user))
+        .join(models.User, models.AuditLog.user_id == models.User.id)
         .order_by(models.AuditLog.timestamp.desc())
         .limit(limit)
         .offset(offset)
     )
+    if admin.company_id:
+        query = query.where(models.User.company_id == admin.company_id)
+    
+    result = await db.execute(query)
     return result.scalars().all()
 # --- Legacy Factory Reports (Disabled) ---
 
@@ -1393,6 +1413,12 @@ async def pickup_shipment(
     shipment.picked_up_at = datetime.datetime.utcnow()
     await add_timeline_entry(db, shipment.id, models.ShipmentStatus.PICKED_UP, user.id, "Picked up by driver")
     await create_audit_log(db, user.id, "SHIPMENT_PICKED_UP", "SHIPMENT", shipment.id, f"Shipment {shipment.tracking_number} picked up")
+    
+    # Sync with TripStop if exists
+    stop_res = await db.execute(select(models.TripStop).where(models.TripStop.shipment_id == id))
+    stop = stop_res.scalars().first()
+    if stop:
+        stop.status = models.TripStopStatus.IN_TRANSIT
 
     await db.commit()
     result = await db.execute(
@@ -1420,6 +1446,12 @@ async def transit_shipment(
     shipment.in_transit_at = datetime.datetime.utcnow()
     await add_timeline_entry(db, shipment.id, models.ShipmentStatus.IN_TRANSIT, user.id, "In transit")
     await create_audit_log(db, user.id, "SHIPMENT_IN_TRANSIT", "SHIPMENT", shipment.id, f"Shipment {shipment.tracking_number} in transit")
+
+    # Sync with TripStop if exists
+    stop_res = await db.execute(select(models.TripStop).where(models.TripStop.shipment_id == id))
+    stop = stop_res.scalars().first()
+    if stop:
+        stop.status = models.TripStopStatus.IN_TRANSIT
 
     await db.commit()
     result = await db.execute(
@@ -1486,6 +1518,21 @@ async def deliver_shipment(
     await create_notification(db, shipment.sender_id, "ALERT", "Shipment Delivered",
                               f"Your shipment {shipment.tracking_number} has been delivered")
     await create_audit_log(db, user.id, "SHIPMENT_DELIVERED", "SHIPMENT", shipment.id, f"Shipment {shipment.tracking_number} delivered")
+
+    # Sync with TripStop if exists
+    stop_res = await db.execute(select(models.TripStop).where(models.TripStop.shipment_id == id))
+    stop = stop_res.scalars().first()
+    if stop:
+        stop.status = models.TripStopStatus.COMPLETED
+        stop.completed_at = datetime.datetime.utcnow()
+        # Check if trip is finished
+        trip_res = await db.execute(
+            select(models.Trip).options(selectinload(models.Trip.stops)).where(models.Trip.id == stop.trip_id)
+        )
+        trip = trip_res.scalars().first()
+        if trip and all(s.status == models.TripStopStatus.COMPLETED for s in trip.stops):
+            trip.status = models.TripStatus.COMPLETED
+            trip.completed_at = datetime.datetime.utcnow()
 
     await db.commit()
     result = await db.execute(
@@ -1904,7 +1951,9 @@ async def fleet_analytics(
         raise HTTPException(403, "Not authorized")
 
     # Vehicle utilization breakdown
-    vehicles_result = await db.execute(select(models.Vehicle))
+    vehicles_result = await db.execute(
+        select(models.Vehicle).where(models.Vehicle.company_id == user.company_id)
+    )
     vehicles = vehicles_result.scalars().all()
 
     total_vehicles = len(vehicles)
@@ -1935,17 +1984,27 @@ async def shipment_analytics(
     if user.role != models.UserRole.ADMIN:
         raise HTTPException(403, "Not authorized")
 
+    # Scope shipments to users in the same company
+    co_users_res = await db.execute(select(models.User.id).where(models.User.company_id == user.company_id))
+    co_user_ids = [r[0] for r in co_users_res.fetchall()]
+    if not co_user_ids:
+        co_user_ids = [user.id]
+
     today = datetime.date.today()
     today_start = datetime.datetime.combine(today, datetime.time.min)
 
     # Today's shipments
     today_count = await db.execute(
-        select(func.count(models.Shipment.id)).where(models.Shipment.created_at >= today_start)
+        select(func.count(models.Shipment.id)).where(
+            models.Shipment.sender_id.in_(co_user_ids),
+            models.Shipment.created_at >= today_start
+        )
     )
 
     # Active shipments
     active_count = await db.execute(
         select(func.count(models.Shipment.id)).where(
+            models.Shipment.sender_id.in_(co_user_ids),
             models.Shipment.status.in_([
                 models.ShipmentStatus.ASSIGNED, models.ShipmentStatus.PICKED_UP, models.ShipmentStatus.IN_TRANSIT
             ])
@@ -1955,6 +2014,7 @@ async def shipment_analytics(
     # Completed shipments (all time)
     completed_count = await db.execute(
         select(func.count(models.Shipment.id)).where(
+            models.Shipment.sender_id.in_(co_user_ids),
             models.Shipment.status.in_([models.ShipmentStatus.DELIVERED, models.ShipmentStatus.CONFIRMED])
         )
     )
@@ -1963,6 +2023,7 @@ async def shipment_analytics(
     delayed_threshold = datetime.datetime.utcnow() - datetime.timedelta(hours=24)
     delayed_count = await db.execute(
         select(func.count(models.Shipment.id)).where(
+            models.Shipment.sender_id.in_(co_user_ids),
             models.Shipment.status.in_([models.ShipmentStatus.ASSIGNED, models.ShipmentStatus.PICKED_UP]),
             models.Shipment.assigned_at < delayed_threshold
         )
@@ -1970,12 +2031,16 @@ async def shipment_analytics(
 
     # Pending
     pending_count = await db.execute(
-        select(func.count(models.Shipment.id)).where(models.Shipment.status == models.ShipmentStatus.PENDING)
+        select(func.count(models.Shipment.id)).where(
+            models.Shipment.sender_id.in_(co_user_ids),
+            models.Shipment.status == models.ShipmentStatus.PENDING
+        )
     )
 
     # Completion rate
     total_non_cancelled = await db.execute(
         select(func.count(models.Shipment.id)).where(
+            models.Shipment.sender_id.in_(co_user_ids),
             models.Shipment.status != models.ShipmentStatus.CANCELLED
         )
     )
@@ -1985,21 +2050,32 @@ async def shipment_analytics(
 
     # Cancelled
     cancelled_count = await db.execute(
-        select(func.count(models.Shipment.id)).where(models.Shipment.status == models.ShipmentStatus.CANCELLED)
+        select(func.count(models.Shipment.id)).where(
+            models.Shipment.sender_id.in_(co_user_ids),
+            models.Shipment.status == models.ShipmentStatus.CANCELLED
+        )
     )
 
     # Delivered (not confirmed yet)
     delivered_only = await db.execute(
-        select(func.count(models.Shipment.id)).where(models.Shipment.status == models.ShipmentStatus.DELIVERED)
+        select(func.count(models.Shipment.id)).where(
+            models.Shipment.sender_id.in_(co_user_ids),
+            models.Shipment.status == models.ShipmentStatus.DELIVERED
+        )
     )
 
     # Confirmed
     confirmed_count = await db.execute(
-        select(func.count(models.Shipment.id)).where(models.Shipment.status == models.ShipmentStatus.CONFIRMED)
+        select(func.count(models.Shipment.id)).where(
+            models.Shipment.sender_id.in_(co_user_ids),
+            models.Shipment.status == models.ShipmentStatus.CONFIRMED
+        )
     )
 
     # Total
-    total_count = await db.execute(select(func.count(models.Shipment.id)))
+    total_count = await db.execute(
+        select(func.count(models.Shipment.id)).where(models.Shipment.sender_id.in_(co_user_ids))
+    )
 
     today_end = today_start + datetime.timedelta(days=1)
     
@@ -2012,6 +2088,7 @@ async def shipment_analytics(
         
         count = await db.execute(
             select(func.count(models.Shipment.id)).where(
+                models.Shipment.sender_id.in_(co_user_ids),
                 models.Shipment.created_at >= day_start,
                 models.Shipment.created_at <= day_end
             )
@@ -2163,6 +2240,41 @@ async def list_saved_addresses(
     ).order_by(models.SavedAddress.created_at.desc())
     result = await db.execute(query)
     return result.scalars().all()
+
+
+@app.put("/addresses/{id}", response_model=schemas.SavedAddressResponse)
+async def update_saved_address(
+    id: int,
+    req: schemas.SavedAddressCreate,
+    db: AsyncSession = Depends(get_db),
+    user: models.User = Depends(get_current_user)
+):
+    result = await db.execute(select(models.SavedAddress).where(models.SavedAddress.id == id))
+    addr = result.scalars().first()
+    if not addr:
+        raise HTTPException(status_code=404, detail="Address not found")
+        
+    # Check authorization based on company scope
+    if addr.user_id != user.id:
+        addr_owner_result = await db.execute(select(models.User).where(models.User.id == addr.user_id))
+        addr_owner = addr_owner_result.scalars().first()
+        is_same_company = addr_owner and user.company_id and addr_owner.company_id == user.company_id
+        is_admin_global = user.role == models.UserRole.ADMIN and addr.is_global
+        if not (is_same_company or is_admin_global):
+            raise HTTPException(403, "Not authorized to edit this address")
+
+    addr.label = req.label
+    addr.address = req.address
+    addr.lat = req.lat
+    addr.lng = req.lng
+    
+    # Only admins can change is_global flag
+    if user.role == models.UserRole.ADMIN:
+        addr.is_global = req.is_global
+
+    await db.commit()
+    await db.refresh(addr)
+    return addr
 
 
 @app.delete("/addresses/{id}")
@@ -2343,3 +2455,418 @@ async def autocomplete_locations(
     
     locations = set([r for r in res_pickup.scalars().all()] + [r for r in res_drop.scalars().all()])
     return list(locations)[:limit]
+
+
+# ===============================
+# TRIP PLANNING & SCHEDULING (SRS §4.2)
+# ===============================
+
+import math
+import os
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+
+def _haversine_km(lat1, lon1, lat2, lon2):
+    """Straight-line distance in km between two GPS coordinates."""
+    R = 6371.0
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlam = math.radians(lon2 - lon1)
+    a = math.sin(dphi/2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlam/2)**2
+    return 2 * R * math.asin(math.sqrt(a))
+
+
+def _google_route_optimization_or_fallback(shipments_with_coords):
+    """
+    SRS §4.2: Uses Google Route Optimization API (computeRoutes) for optimal sequence.
+    Provides graceful fallback to Haversine nearest-neighbor if GOOGLE_MAPS_API_KEY is not set.
+    """
+    points = [s for s in shipments_with_coords if s.get('lat') and s.get('lng')]
+    no_coords = [s for s in shipments_with_coords if not (s.get('lat') and s.get('lng'))]
+
+    if not points:
+        return shipments_with_coords
+
+    api_key = os.getenv("GOOGLE_MAPS_API_KEY")
+    if api_key and len(points) >= 3:
+        try:
+            import requests
+            url = "https://routes.googleapis.com/directions/v2:computeRoutes"
+            headers = {
+                "Content-Type": "application/json",
+                "X-Goog-Api-Key": api_key,
+                "X-Goog-FieldMask": "routes.optimizedIntermediateWaypointIndex"
+            }
+            payload = {
+                "origin": {"location": {"latLng": {"latitude": points[0]['lat'], "longitude": points[0]['lng']}}},
+                "destination": {"location": {"latLng": {"latitude": points[-1]['lat'], "longitude": points[-1]['lng']}}},
+                "intermediates": [{"location": {"latLng": {"latitude": p['lat'], "longitude": p['lng']}}} for p in points[1:-1]],
+                "optimizeWaypointOrder": True,
+                "travelMode": "DRIVE"
+            }
+            
+            response = requests.post(url, headers=headers, json=payload, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                if "routes" in data and len(data["routes"]) > 0:
+                    route = data["routes"][0]
+                    if "optimizedIntermediateWaypointIndex" in route:
+                        opt_indices = route["optimizedIntermediateWaypointIndex"]
+                        optimized_intermediates = [points[1 + i] for i in opt_indices]
+                        return [points[0]] + optimized_intermediates + [points[-1]] + no_coords
+        except Exception as e:
+            print(f"Google Routes API error: {str(e)}")
+
+    # Fallback to greedy nearest-neighbor
+    ordered = [points.pop(0)]
+    while points:
+        last = ordered[-1]
+        closest = min(points, key=lambda p: _haversine_km(last['lat'], last['lng'], p['lat'], p['lng']))
+        ordered.append(closest)
+        points.remove(closest)
+
+    return ordered + no_coords
+
+
+def _estimate_leg(lat1, lon1, lat2, lon2):
+    """Return (distance_km, duration_min) for a route leg — assumes 40 km/h avg speed."""
+    if lat1 and lon1 and lat2 and lon2:
+        d = _haversine_km(lat1, lon1, lat2, lon2)
+        return round(d, 2), round(d / 40 * 60, 1)
+    return None, None
+
+
+async def _send_email_notification(to_email: str, subject: str, body: str):
+    """Send email via SMTP. Gracefully skips if SMTP env vars not configured."""
+    smtp_host = os.getenv("SMTP_HOST")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER")
+    smtp_pass = os.getenv("SMTP_PASS")
+    from_email = os.getenv("SMTP_FROM", smtp_user)
+
+    if not all([smtp_host, smtp_user, smtp_pass]):
+        return  # Skip silently — SMTP not configured
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = from_email
+        msg["To"] = to_email
+        msg.attach(MIMEText(body, "plain"))
+
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=5) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_pass)
+            server.sendmail(from_email, to_email, msg.as_string())
+    except Exception:
+        pass  # Non-critical — log in production
+
+
+def _generate_trip_number():
+    import random
+    ts = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    return f"TRIP-{ts}-{random.randint(100, 999)}"
+
+
+def _load_trip_query():
+    return (
+        select(models.Trip)
+        .options(
+            selectinload(models.Trip.vehicle),
+            selectinload(models.Trip.driver),
+            selectinload(models.Trip.stops).options(
+                selectinload(models.TripStop.shipment).options(
+                    selectinload(models.Shipment.items),
+                    selectinload(models.Shipment.assigned_vehicle),
+                    selectinload(models.Shipment.assigned_driver),
+                    selectinload(models.Shipment.timeline).joinedload(models.ShipmentTimeline.updated_by),
+                    selectinload(models.Shipment.receipt),
+                )
+            )
+        )
+    )
+
+
+@app.post("/trips", response_model=schemas.TripResponse)
+async def create_trip(
+    req: schemas.TripCreate,
+    db: AsyncSession = Depends(get_db),
+    user: models.User = Depends(get_current_user)
+):
+    """
+    SRS §4.2 — Trip Planning & Scheduling.
+    Admin selects multiple order requests (shipments) and creates a trip.
+    Nearest-neighbor algorithm orders the stops optimally.
+    Notifies each requestor and the assigned driver.
+    """
+    if user.role != models.UserRole.ADMIN:
+        raise HTTPException(403, "Only admins can create trips")
+    if not req.shipment_ids:
+        raise HTTPException(400, "At least one shipment is required")
+
+    # Validate vehicle
+    veh_res = await db.execute(select(models.Vehicle).where(models.Vehicle.id == req.vehicle_id))
+    vehicle = veh_res.scalars().first()
+    if not vehicle:
+        raise HTTPException(404, "Vehicle not found")
+
+    # Validate driver
+    drv_res = await db.execute(select(models.User).where(
+        models.User.id == req.driver_id,
+        models.User.role == models.UserRole.DRIVER
+    ))
+    driver = drv_res.scalars().first()
+    if not driver:
+        raise HTTPException(404, "Driver not found")
+
+    # Load shipments and validate
+    shipments = []
+    for sid in req.shipment_ids:
+        s_res = await db.execute(select(models.Shipment).where(models.Shipment.id == sid))
+        s = s_res.scalars().first()
+        if not s:
+            raise HTTPException(404, f"Shipment {sid} not found")
+        if s.status != models.ShipmentStatus.PENDING:
+            raise HTTPException(400, f"Shipment {sid} is not PENDING (status: {s.status.value})")
+        shipments.append(s)
+
+    # === ROUTE OPTIMIZATION — Google Area & Nearest-Neighbor Algorithm ===
+    coords_list = [
+        {"id": s.id, "lat": s.pickup_lat, "lng": s.pickup_lng, "shipment": s}
+        for s in shipments
+    ]
+    ordered = _google_route_optimization_or_fallback(coords_list)
+
+    # Create Trip
+    trip = models.Trip(
+        trip_number=_generate_trip_number(),
+        vehicle_id=req.vehicle_id,
+        driver_id=req.driver_id,
+        created_by_id=user.id,
+        company_id=user.company_id,
+        status=models.TripStatus.PLANNED,
+    )
+    db.add(trip)
+    await db.flush()
+
+    # Create TripStops in optimized sequence and update shipment status
+    total_dist = 0.0
+    total_dur = 0.0
+    prev_lat, prev_lng = None, None
+
+    notified_senders = set()
+    for seq, item in enumerate(ordered, start=1):
+        s = item["shipment"]
+        dist, dur = _estimate_leg(prev_lat, prev_lng, s.pickup_lat, s.pickup_lng)
+        total_dist += dist or 0.0
+        total_dur += dur or 0.0
+
+        stop = models.TripStop(
+            trip_id=trip.id,
+            shipment_id=s.id,
+            sequence_order=seq,
+            estimated_distance_km=dist,
+            estimated_duration_min=dur,
+            status=models.TripStopStatus.PENDING,
+        )
+        db.add(stop)
+
+        # Mark shipment as ASSIGNED
+        s.status = models.ShipmentStatus.ASSIGNED
+        s.assigned_vehicle_id = req.vehicle_id
+        s.assigned_driver_id = req.driver_id
+        s.assigned_at = datetime.datetime.utcnow()
+
+        await add_timeline_entry(db, s.id, models.ShipmentStatus.ASSIGNED, user.id,
+                                 f"Assigned to trip {trip.trip_number} (stop #{seq})")
+
+        # Notify sender (once per sender)
+        if s.sender_id not in notified_senders:
+            await create_notification(
+                db, s.sender_id, "ASSIGNMENT",
+                f"Your order has been scheduled",
+                f"Shipment {s.tracking_number} is scheduled in trip {trip.trip_number}. "
+                f"Driver: {driver.name or driver.email}"
+            )
+            notified_senders.add(s.sender_id)
+
+            # Email notification (graceful skip if SMTP not configured)
+            sender_res = await db.execute(select(models.User).where(models.User.id == s.sender_id))
+            sender = sender_res.scalars().first()
+            if sender:
+                await _send_email_notification(
+                    sender.email,
+                    f"[Logistics] Your request has been scheduled — {s.tracking_number}",
+                    f"Dear {sender.name or 'User'},\n\n"
+                    f"Your logistics request (Tracking: {s.tracking_number}) has been scheduled.\n"
+                    f"Trip: {trip.trip_number}\n"
+                    f"Vehicle: {vehicle.name} ({vehicle.plate_number})\n"
+                    f"Driver: {driver.name or driver.email}\n\n"
+                    f"You can track your shipment in the portal.\n\nThank you."
+                )
+
+        prev_lat, prev_lng = s.drop_lat, s.drop_lng
+
+    # Update trip metrics and vehicle status
+    trip.total_distance_km = round(total_dist, 2)
+    trip.total_duration_min = round(total_dur, 1)
+    vehicle.status = models.VehicleStatus.ON_TRIP
+
+    # Notify driver
+    await create_notification(
+        db, req.driver_id, "ASSIGNMENT",
+        "New Trip Assigned",
+        f"Trip {trip.trip_number} assigned to you with {len(ordered)} stops. "
+        f"Vehicle: {vehicle.name} ({vehicle.plate_number})"
+    )
+    await _send_email_notification(
+        driver.email,
+        f"[Logistics] New Trip Assigned — {trip.trip_number}",
+        f"Dear {driver.name or 'Driver'},\n\n"
+        f"You have been assigned a new trip: {trip.trip_number}\n"
+        f"Stops: {len(ordered)}\n"
+        f"Vehicle: {vehicle.name} ({vehicle.plate_number})\n"
+        f"Estimated Distance: {round(total_dist, 2)} km\n\n"
+        f"Please check the app for your tripsheet.\n\nThank you."
+    )
+
+    await create_audit_log(db, user.id, "TRIP_CREATED", "TRIP", trip.id,
+                           f"Trip {trip.trip_number} created with {len(ordered)} stops")
+    await db.commit()
+
+    result = await db.execute(_load_trip_query().where(models.Trip.id == trip.id))
+    return result.scalars().first()
+
+
+@app.get("/trips", response_model=List[schemas.TripResponse])
+async def list_trips(
+    db: AsyncSession = Depends(get_db),
+    user: models.User = Depends(get_current_user)
+):
+    """List trips. Admin: all company trips. Driver: own trips."""
+    query = _load_trip_query()
+    if user.role == models.UserRole.ADMIN:
+        query = query.where(models.Trip.company_id == user.company_id)
+    elif user.role == models.UserRole.DRIVER:
+        query = query.where(models.Trip.driver_id == user.id)
+    else:
+        raise HTTPException(403, "Not authorized")
+    query = query.order_by(models.Trip.created_at.desc())
+    result = await db.execute(query)
+    return result.scalars().all()
+
+
+@app.get("/trips/{id}", response_model=schemas.TripResponse)
+async def get_trip(
+    id: int,
+    db: AsyncSession = Depends(get_db),
+    user: models.User = Depends(get_current_user)
+):
+    result = await db.execute(_load_trip_query().where(models.Trip.id == id))
+    trip = result.scalars().first()
+    if not trip:
+        raise HTTPException(404, "Trip not found")
+    if user.role == models.UserRole.DRIVER and trip.driver_id != user.id:
+        raise HTTPException(403, "Not your trip")
+    return trip
+
+
+@app.post("/driver/update-location")
+async def update_driver_location_general(
+    req: schemas.UpdateTripLocationRequest,
+    db: AsyncSession = Depends(get_db),
+    user: models.User = Depends(get_current_user)
+):
+    """General driver location update, syncs to active trip if any."""
+    if user.role != models.UserRole.DRIVER:
+        raise HTTPException(403, "Only drivers can update location")
+
+    # Find active trip
+    result = await db.execute(
+        select(models.Trip).where(
+            models.Trip.driver_id == user.id,
+            models.Trip.status.in_([models.TripStatus.PLANNED, models.TripStatus.IN_PROGRESS])
+        ).order_by(models.Trip.created_at.desc()).limit(1)
+    )
+    trip = result.scalars().first()
+    if trip:
+        trip.current_lat = req.lat
+        trip.current_lng = req.lng
+        trip.last_location_at = datetime.datetime.utcnow()
+        if trip.status == models.TripStatus.PLANNED:
+            trip.status = models.TripStatus.IN_PROGRESS
+            trip.started_at = datetime.datetime.utcnow()
+        await db.commit()
+    return {"status": "ok", "trip_updated": trip.id if trip else None}
+
+
+@app.post("/trips/{id}/update-location")
+async def update_trip_location(
+    id: int,
+    req: schemas.UpdateTripLocationRequest,
+    db: AsyncSession = Depends(get_db),
+    user: models.User = Depends(get_current_user)
+):
+    """Driver posts real GPS coordinates for live tracking."""
+    if user.role != models.UserRole.DRIVER:
+        raise HTTPException(403, "Only drivers can update location")
+
+    result = await db.execute(select(models.Trip).where(models.Trip.id == id))
+    trip = result.scalars().first()
+    if not trip or trip.driver_id != user.id:
+        raise HTTPException(404, "Trip not found")
+
+    trip.current_lat = req.lat
+    trip.current_lng = req.lng
+    trip.last_location_at = datetime.datetime.utcnow()
+
+    if trip.status == models.TripStatus.PLANNED:
+        trip.status = models.TripStatus.IN_PROGRESS
+        trip.started_at = datetime.datetime.utcnow()
+
+    await db.commit()
+    return {"message": "Location updated", "lat": req.lat, "lng": req.lng}
+
+
+@app.delete("/trips/{id}")
+async def cancel_trip(
+    id: int,
+    db: AsyncSession = Depends(get_db),
+    user: models.User = Depends(get_current_user)
+):
+    """Admin cancels a planned trip. Resets shipments to PENDING."""
+    if user.role != models.UserRole.ADMIN:
+        raise HTTPException(403, "Only admin can cancel trips")
+
+    trip_res = await db.execute(
+        select(models.Trip).options(selectinload(models.Trip.stops))
+        .where(models.Trip.id == id)
+    )
+    trip = trip_res.scalars().first()
+    if not trip:
+        raise HTTPException(404, "Trip not found")
+    if trip.status not in [models.TripStatus.PLANNED, models.TripStatus.IN_PROGRESS]:
+        raise HTTPException(400, "Can only cancel PLANNED or IN_PROGRESS trips")
+
+    for stop in trip.stops:
+        if stop.status == models.TripStopStatus.PENDING:
+            s_res = await db.execute(select(models.Shipment).where(models.Shipment.id == stop.shipment_id))
+            s = s_res.scalars().first()
+            if s and s.status == models.ShipmentStatus.ASSIGNED:
+                s.status = models.ShipmentStatus.PENDING
+                s.assigned_vehicle_id = None
+                s.assigned_driver_id = None
+
+    trip.status = models.TripStatus.CANCELLED
+
+    veh_res = await db.execute(select(models.Vehicle).where(models.Vehicle.id == trip.vehicle_id))
+    vehicle = veh_res.scalars().first()
+    if vehicle:
+        vehicle.status = models.VehicleStatus.AVAILABLE
+
+    await create_audit_log(db, user.id, "TRIP_CANCELLED", "TRIP", trip.id,
+                           f"Trip {trip.trip_number} cancelled by admin")
+    await db.commit()
+    return {"message": "Trip cancelled"}

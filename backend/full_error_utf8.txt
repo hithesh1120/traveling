@@ -1,0 +1,666 @@
+﻿2026-03-21 13:12:12,145 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-03-21 13:12:12,191 INFO sqlalchemy.engine.Engine SELECT users.id, users.email, users.name, users.hashed_password, users.role, users.status, users.is_active, users.license_number, users.rating, users.phone, users.company_id, users.vendor_id 
+FROM users 
+WHERE users.email = ?
+2026-03-21 13:12:12,191 INFO sqlalchemy.engine.Engine [generated in 0.00034s] ('admin@example.com',)
+2026-03-21 13:12:12,476 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-03-21 13:12:12,488 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-03-21 13:12:12,491 INFO sqlalchemy.engine.Engine SELECT users.id, users.email, users.name, users.hashed_password, users.role, users.status, users.is_active, users.license_number, users.rating, users.phone, users.company_id, users.vendor_id 
+FROM users 
+WHERE users.email = ?
+2026-03-21 13:12:12,491 INFO sqlalchemy.engine.Engine [generated in 0.00049s] ('admin@example.com',)
+2026-03-21 13:12:12,494 INFO sqlalchemy.engine.Engine SELECT users.id, users.email, users.name, users.hashed_password, users.role, users.status, users.is_active, users.license_number, users.rating, users.phone, users.company_id, users.vendor_id 
+FROM users 
+WHERE users.email = ?
+2026-03-21 13:12:12,494 INFO sqlalchemy.engine.Engine [cached since 0.00367s ago] ('admin@example.com',)
+2026-03-21 13:12:12,498 INFO sqlalchemy.engine.Engine SELECT users.id 
+FROM users 
+WHERE users.company_id = ?
+2026-03-21 13:12:12,498 INFO sqlalchemy.engine.Engine [generated in 0.00021s] (1,)
+2026-03-21 13:12:12,504 INFO sqlalchemy.engine.Engine SELECT shipments.id, shipments.tracking_number, shipments.po_number, shipments.sender_id, shipments.pickup_address, shipments.pickup_lat, shipments.pickup_lng, shipments.pickup_contact, shipments.pickup_phone, shipments.drop_address, shipments.drop_lat, shipments.drop_lng, shipments.drop_contact, shipments.drop_phone, shipments.total_weight, shipments.total_volume, shipments.remarks, shipments.description, shipments.special_instructions, shipments.zone_id, shipments.assigned_vehicle_id, shipments.assigned_driver_id, shipments.status, shipments.created_at, shipments.assigned_at, shipments.picked_up_at, shipments.in_transit_at, shipments.delivered_at, shipments.confirmed_at, shipments.updated_at 
+FROM shipments 
+WHERE shipments.sender_id IN (?, ?, ?, ?) ORDER BY shipments.created_at DESC
+2026-03-21 13:12:12,504 INFO sqlalchemy.engine.Engine [generated in 0.00024s] (1, 2, 3, 4)
+2026-03-21 13:12:12,506 INFO sqlalchemy.engine.Engine ROLLBACK
+.\venv\Scripts\python.exe
+ : Traceback (most 
+recent call last):
+At line:1 char:1
++ .\venv\Scripts\python.e
+xe test_fastapi.py > 
+full_error.txt 2>&1
++ ~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~
+    + CategoryInfo       
+       : NotSpecified:   
+  (Traceback (most rec   
+ ent call last)::Stri    
+ng) [], RemoteExcept    
+ion
+    + FullyQualifiedErro 
+   rId : NativeCommandE  
+  rror
+ 
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\sqlalchemy\
+engine\base.py", line 
+1967, in 
+_exec_single_context
+    
+self.dialect.do_execute(
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\sqlalchemy\
+engine\default.py", line 
+952, in do_execute
+    cursor.execute(statem
+ent, parameters)
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\sqlalchemy\
+dialects\sqlite\aiosqlite
+.py", line 182, in 
+execute
+    self._adapt_connectio
+n._handle_exception(error
+)
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\sqlalchemy\
+dialects\sqlite\aiosqlite
+.py", line 342, in 
+_handle_exception
+    raise error
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\sqlalchemy\
+dialects\sqlite\aiosqlite
+.py", line 164, in 
+execute
+    self.await_(_cursor.e
+xecute(operation, 
+parameters))
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\sqlalchemy\
+util\_concurrency_py3k.py
+", line 132, in 
+await_only
+    return current.parent
+.switch(awaitable)  # 
+type: ignore[no-any-retur
+n,attr-defined] # noqa: 
+E501
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\sqlalchemy\
+util\_concurrency_py3k.py
+", line 196, in 
+greenlet_spawn
+    value = await result
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\aiosqlite\c
+ursor.py", line 40, in 
+execute
+    await self._execute(s
+elf._cursor.execute, 
+sql, parameters)
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\aiosqlite\c
+ursor.py", line 32, in 
+_execute
+    return await 
+self._conn._execute(fn, 
+*args, **kwargs)
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\aiosqlite\c
+ore.py", line 160, in 
+_execute
+    return await future
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\aiosqlite\c
+ore.py", line 63, in 
+_connection_worker_thread
+    result = function()
+sqlite3.OperationalError:
+ no such column: 
+shipments.remarks
+
+The above exception was 
+the direct cause of the 
+following exception:
+
+Traceback (most recent 
+call last):
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\test_fast
+api.py", line 15, in 
+<module>
+    r = 
+client.get("/shipments", 
+headers=headers)
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\starlette\t
+estclient.py", line 473, 
+in get
+    return super().get(
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\httpx\_clie
+nt.py", line 1053, in get
+    return self.request(
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\starlette\t
+estclient.py", line 445, 
+in request
+    return 
+super().request(
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\httpx\_clie
+nt.py", line 825, in 
+request
+    return 
+self.send(request, 
+auth=auth, follow_redirec
+ts=follow_redirects)
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\httpx\_clie
+nt.py", line 914, in send
+    response = 
+self._send_handling_auth(
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\httpx\_clie
+nt.py", line 942, in 
+_send_handling_auth
+    response = self._send
+_handling_redirects(
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\httpx\_clie
+nt.py", line 979, in 
+_send_handling_redirects
+    response = self._send
+_single_request(request)
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\httpx\_clie
+nt.py", line 1014, in 
+_send_single_request
+    response = transport.
+handle_request(request)
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\starlette\t
+estclient.py", line 348, 
+in handle_request
+    raise exc
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\starlette\t
+estclient.py", line 345, 
+in handle_request
+    
+portal.call(self.app, 
+scope, receive, send)
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\anyio\from_
+thread.py", line 334, in 
+call
+    return 
+cast(T_Retval, self.start
+_task_soon(func, 
+*args).result())
+  File "C:\Users\hithe\Do
+wnloads\Lib\concurrent\fu
+tures\_base.py", line 
+450, in result
+    return 
+self.__get_result()
+  File "C:\Users\hithe\Do
+wnloads\Lib\concurrent\fu
+tures\_base.py", line 
+395, in __get_result
+    raise self._exception
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\anyio\from_
+thread.py", line 259, in 
+_call_func
+    retval = await 
+retval_or_awaitable
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\fastapi\app
+lications.py", line 
+1160, in __call__
+    await 
+super().__call__(scope, 
+receive, send)
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\starlette\a
+pplications.py", line 
+107, in __call__
+    await self.middleware
+_stack(scope, receive, 
+send)
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\starlette\m
+iddleware\errors.py", 
+line 186, in __call__
+    raise exc
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\starlette\m
+iddleware\errors.py", 
+line 164, in __call__
+    await 
+self.app(scope, receive, 
+_send)
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\starlette\m
+iddleware\cors.py", line 
+87, in __call__
+    await 
+self.app(scope, receive, 
+send)
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\starlette\m
+iddleware\exceptions.py",
+ line 63, in __call__
+    await wrap_app_handli
+ng_exceptions(self.app, 
+conn)(scope, receive, 
+send)
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\starlette\_
+exception_handler.py", 
+line 53, in wrapped_app
+    raise exc
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\starlette\_
+exception_handler.py", 
+line 42, in wrapped_app
+    await app(scope, 
+receive, sender)
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\fastapi\mid
+dleware\asyncexitstack.py
+", line 18, in __call__
+    await 
+self.app(scope, receive, 
+send)
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\starlette\r
+outing.py", line 716, in 
+__call__
+    await self.middleware
+_stack(scope, receive, 
+send)
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\starlette\r
+outing.py", line 736, in 
+app
+    await 
+route.handle(scope, 
+receive, send)
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\starlette\r
+outing.py", line 290, in 
+handle
+    await 
+self.app(scope, receive, 
+send)
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\fastapi\rou
+ting.py", line 130, in 
+app
+    await wrap_app_handli
+ng_exceptions(app, 
+request)(scope, receive, 
+send)
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\starlette\_
+exception_handler.py", 
+line 53, in wrapped_app
+    raise exc
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\starlette\_
+exception_handler.py", 
+line 42, in wrapped_app
+    await app(scope, 
+receive, sender)
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\fastapi\rou
+ting.py", line 116, in 
+app
+    response = await 
+f(request)
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\fastapi\rou
+ting.py", line 670, in 
+app
+    raw_response = await 
+run_endpoint_function(
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\fastapi\rou
+ting.py", line 324, in 
+run_endpoint_function
+    return await 
+dependant.call(**values)
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\main.py",
+ line 1057, in 
+list_shipments
+    result = await 
+db.execute(query)
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\sqlalchemy\
+ext\asyncio\session.py", 
+line 449, in execute
+    result = await 
+greenlet_spawn(
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\sqlalchemy\
+util\_concurrency_py3k.py
+", line 201, in 
+greenlet_spawn
+    result = context.thro
+w(*sys.exc_info())
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\sqlalchemy\
+orm\session.py", line 
+2351, in execute
+    return 
+self._execute_internal(
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\sqlalchemy\
+orm\session.py", line 
+2249, in 
+_execute_internal
+    result: Result[Any] 
+= compile_state_cls.orm_e
+xecute_statement(
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\sqlalchemy\
+orm\context.py", line 
+306, in 
+orm_execute_statement
+    result = 
+conn.execute(
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\sqlalchemy\
+engine\base.py", line 
+1419, in execute
+    return meth(
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\sqlalchemy\
+sql\elements.py", line 
+527, in 
+_execute_on_connection
+    return connection._ex
+ecute_clauseelement(
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\sqlalchemy\
+engine\base.py", line 
+1641, in 
+_execute_clauseelement
+    ret = 
+self._execute_context(
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\sqlalchemy\
+engine\base.py", line 
+1846, in _execute_context
+    return self._exec_sin
+gle_context(
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\sqlalchemy\
+engine\base.py", line 
+1986, in 
+_exec_single_context
+    self._handle_dbapi_ex
+ception(
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\sqlalchemy\
+engine\base.py", line 
+2363, in 
+_handle_dbapi_exception
+    raise sqlalchemy_exce
+ption.with_traceback(exc_
+info[2]) from e
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\sqlalchemy\
+engine\base.py", line 
+1967, in 
+_exec_single_context
+    
+self.dialect.do_execute(
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\sqlalchemy\
+engine\default.py", line 
+952, in do_execute
+    cursor.execute(statem
+ent, parameters)
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\sqlalchemy\
+dialects\sqlite\aiosqlite
+.py", line 182, in 
+execute
+    self._adapt_connectio
+n._handle_exception(error
+)
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\sqlalchemy\
+dialects\sqlite\aiosqlite
+.py", line 342, in 
+_handle_exception
+    raise error
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\sqlalchemy\
+dialects\sqlite\aiosqlite
+.py", line 164, in 
+execute
+    self.await_(_cursor.e
+xecute(operation, 
+parameters))
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\sqlalchemy\
+util\_concurrency_py3k.py
+", line 132, in 
+await_only
+    return current.parent
+.switch(awaitable)  # 
+type: ignore[no-any-retur
+n,attr-defined] # noqa: 
+E501
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\sqlalchemy\
+util\_concurrency_py3k.py
+", line 196, in 
+greenlet_spawn
+    value = await result
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\aiosqlite\c
+ursor.py", line 40, in 
+execute
+    await self._execute(s
+elf._cursor.execute, 
+sql, parameters)
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\aiosqlite\c
+ursor.py", line 32, in 
+_execute
+    return await 
+self._conn._execute(fn, 
+*args, **kwargs)
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\aiosqlite\c
+ore.py", line 160, in 
+_execute
+    return await future
+  File "C:\Users\hithe\On
+eDrive\Desktop\lst\Logist
+ics_new\backend\venv\Lib\
+site-packages\aiosqlite\c
+ore.py", line 63, in 
+_connection_worker_thread
+    result = function()
+sqlalchemy.exc.Operationa
+lError: (sqlite3.Operatio
+nalError) no such 
+column: shipments.remarks
+[SQL: SELECT 
+shipments.id, shipments.t
+racking_number, 
+shipments.po_number, 
+shipments.sender_id, ship
+ments.pickup_address, 
+shipments.pickup_lat, 
+shipments.pickup_lng, shi
+pments.pickup_contact, 
+shipments.pickup_phone, 
+shipments.drop_address, 
+shipments.drop_lat, 
+shipments.drop_lng, 
+shipments.drop_contact, 
+shipments.drop_phone, 
+shipments.total_weight, 
+shipments.total_volume, 
+shipments.remarks, 
+shipments.description, sh
+ipments.special_instructi
+ons, shipments.zone_id, s
+hipments.assigned_vehicle
+_id, shipments.assigned_d
+river_id, 
+shipments.status, 
+shipments.created_at, 
+shipments.assigned_at, 
+shipments.picked_up_at, 
+shipments.in_transit_at, 
+shipments.delivered_at, 
+shipments.confirmed_at, 
+shipments.updated_at 
+FROM shipments 
+WHERE 
+shipments.sender_id IN 
+(?, ?, ?, ?) ORDER BY 
+shipments.created_at 
+DESC]
+[parameters: (1, 2, 3, 
+4)]
+(Background on this 
+error at: https://sqlalch
+e.me/e/20/e3q8)

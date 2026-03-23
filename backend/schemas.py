@@ -2,7 +2,8 @@ from pydantic import BaseModel, EmailStr
 from typing import Optional, List, Any
 import datetime
 from models import (UserRole, UserStatus, DeliveryStatus, DockType, DockStatus,
-                     ShipmentStatus, VehicleStatus, VehicleType, ZoneStatus)
+                     ShipmentStatus, VehicleStatus, VehicleType, ZoneStatus,
+                     TripStatus, TripStopStatus)
 
 # --- Auth ---
 class Token(BaseModel):
@@ -431,5 +432,54 @@ class SavedAddressResponse(SavedAddressCreate):
 class GlobalSearchResponse(BaseModel):
     shipments: List[ShipmentResponse] = []
     drivers: List[UserResponse] = []
-    vehicles: List[VehicleResponse] = []
 
+
+# --- Trip System ---
+class TripCreate(BaseModel):
+    shipment_ids: List[int]
+    vehicle_id: int
+    driver_id: int
+
+class UpdateTripLocationRequest(BaseModel):
+    lat: float
+    lng: float
+
+class CompleteStopRequest(BaseModel):
+    notes: Optional[str] = None
+
+class TripStopResponse(BaseModel):
+    id: int
+    trip_id: int
+    shipment_id: int
+    sequence_order: int
+    estimated_distance_km: Optional[float] = None
+    estimated_duration_min: Optional[float] = None
+    status: TripStopStatus
+    notes: Optional[str] = None
+    completed_at: Optional[datetime.datetime] = None
+    shipment: Optional[ShipmentResponse] = None
+
+    class Config:
+        from_attributes = True
+
+class TripResponse(BaseModel):
+    id: int
+    trip_number: str
+    vehicle_id: int
+    driver_id: int
+    created_by_id: int
+    status: TripStatus
+    total_distance_km: Optional[float] = None
+    total_duration_min: Optional[float] = None
+    current_lat: Optional[float] = None
+    current_lng: Optional[float] = None
+    last_location_at: Optional[datetime.datetime] = None
+    started_at: Optional[datetime.datetime] = None
+    completed_at: Optional[datetime.datetime] = None
+    created_at: datetime.datetime
+    stops: List[TripStopResponse] = []
+    vehicle: Optional[VehicleResponse] = None
+    driver: Optional[UserResponse] = None
+
+    class Config:
+        from_attributes = True

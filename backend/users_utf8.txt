@@ -1,0 +1,4 @@
+User: ID=1, Email=admin@example.com, Role=UserRole.ADMIN, CompanyID=1
+User: ID=2, Email=msme@example.com, Role=UserRole.MSME, CompanyID=1
+User: ID=3, Email=driver@example.com, Role=UserRole.DRIVER, CompanyID=1
+User: ID=4, Email=hithesh@example.com, Role=UserRole.MSME, CompanyID=1

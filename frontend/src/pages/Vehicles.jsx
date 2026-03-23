@@ -184,10 +184,10 @@ export default function Vehicles() {
             >
                 <Form form={form} layout="vertical" onFinish={handleSave}>
                     <Form.Item name="name" label="Vehicle Name" rules={[{ required: true }]}>
-                        <Input placeholder="e.g. TRK-001" />
+                        <Input placeholder="Enter vehicle name" />
                     </Form.Item>
                     <Form.Item name="plate_number" label="Plate Number" rules={[{ required: true }]}>
-                        <Input placeholder="e.g. KA-01-AB-1234" />
+                        <Input placeholder="Enter plate number" />
                     </Form.Item>
                     <Form.Item name="vehicle_type" initialValue="TRUCK" hidden><Input /></Form.Item>
                     

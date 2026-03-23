@@ -134,7 +134,7 @@ export default function ZoneManagement() {
             >
                 <Form form={form} layout="vertical" onFinish={handleSave}>
                     <Form.Item name="name" label="Zone Name" rules={[{ required: true }]}>
-                        <Input placeholder="e.g. North Zone" />
+                        <Input placeholder="Enter zone name" />
                     </Form.Item>
                     <Form.Item name="description" label="Description">
                         <Input.TextArea rows={2} placeholder="Coverage area description" />

@@ -80,6 +80,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
     delete axios.defaults.headers.common['Authorization'];
+    window.location.href = '/login';
   };
 
   const signupMSME = async (data) => {

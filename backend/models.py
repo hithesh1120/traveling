@@ -62,6 +62,18 @@ class ZoneStatus(str, enum.Enum):
     ACTIVE = "ACTIVE"
     INACTIVE = "INACTIVE"
 
+class TripStatus(str, enum.Enum):
+    PLANNED = "PLANNED"
+    IN_PROGRESS = "IN_PROGRESS"
+    COMPLETED = "COMPLETED"
+    CANCELLED = "CANCELLED"
+
+class TripStopStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    IN_TRANSIT = "IN_TRANSIT"
+    COMPLETED = "COMPLETED"
+    SKIPPED = "SKIPPED"
+
 # --- Core Models ---
 
 class Company(Base):
@@ -259,6 +271,7 @@ class Shipment(Base):
     # Cargo
     total_weight = Column(Float, default=0.0)
     total_volume = Column(Float, default=0.0)
+    remarks = Column(String, nullable=True)
     description = Column(String, nullable=True)
     special_instructions = Column(String, nullable=True)
 
@@ -379,3 +392,45 @@ class SavedAddress(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     user = relationship("User")
+
+
+class Trip(Base):
+    __tablename__ = "trips"
+
+    id = Column(Integer, primary_key=True, index=True)
+    trip_number = Column(String, unique=True, index=True, nullable=False)
+    vehicle_id = Column(Integer, ForeignKey("vehicles.id"), nullable=False)
+    driver_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
+    status = Column(Enum(TripStatus), default=TripStatus.PLANNED, index=True)
+    total_distance_km = Column(Float, nullable=True)
+    total_duration_min = Column(Float, nullable=True)
+    current_lat = Column(Float, nullable=True)
+    current_lng = Column(Float, nullable=True)
+    last_location_at = Column(DateTime, nullable=True)
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    vehicle = relationship("Vehicle", foreign_keys=[vehicle_id])
+    driver = relationship("User", foreign_keys=[driver_id])
+    created_by = relationship("User", foreign_keys=[created_by_id])
+    stops = relationship("TripStop", back_populates="trip", order_by="TripStop.sequence_order", cascade="all, delete-orphan")
+
+
+class TripStop(Base):
+    __tablename__ = "trip_stops"
+
+    id = Column(Integer, primary_key=True, index=True)
+    trip_id = Column(Integer, ForeignKey("trips.id"), nullable=False, index=True)
+    shipment_id = Column(Integer, ForeignKey("shipments.id"), nullable=False, index=True)
+    sequence_order = Column(Integer, nullable=False)  # 1, 2, 3...
+    estimated_distance_km = Column(Float, nullable=True)
+    estimated_duration_min = Column(Float, nullable=True)
+    status = Column(Enum(TripStopStatus), default=TripStopStatus.PENDING)
+    notes = Column(String, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+
+    trip = relationship("Trip", back_populates="stops")
+    shipment = relationship("Shipment")

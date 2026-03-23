@@ -5,7 +5,7 @@ import UserManagement from './pages/UserManagement';
 import Reports from './pages/Reports';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
-import LandingPage from './pages/LandingPage';
+
 import ProtectedRoute from './components/ProtectedRoute';
 import AppLayout from './components/AppLayout';
 import './mobile-overrides.css';
@@ -18,7 +18,7 @@ import AdminOperations from './pages/AdminOperations';
 import ZoneManagement from './pages/ZoneManagement';
 import OperationsMonitor from './pages/OperationsMonitor';
 import Analytics from './pages/Analytics';
-import Settings from './pages/Settings';
+
 import DriverHistory from './pages/DriverHistory';
 import SavedLocations from './pages/SavedLocations';
 import RouteTracking from './pages/RouteTracking';
@@ -46,7 +46,7 @@ function App() {
         <ModalProvider>
           <Router>
             <Routes>
-              <Route path="/" element={<LandingPage />} />
+              <Route path="/" element={<Navigate to="/login" replace />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
               <Route path="/receipt/:id" element={<DeliveryReceipt />} />
@@ -69,7 +69,7 @@ function App() {
                       <Route path="track/:id" element={<RouteTracking />} />
                       <Route path="cargo-3d" element={<CargoVisualizer />} />
                       <Route path="notifications" element={<NotificationsPage />} />
-                      <Route path="settings" element={<Settings />} />
+
                     </Routes>
                   </AppLayout>
                 </ProtectedRoute>
@@ -85,7 +85,7 @@ function App() {
                       <Route path="shipments/:id" element={<ShipmentDetail />} />
                       <Route path="track/:id" element={<RouteTracking />} />
                       <Route path="notifications" element={<NotificationsPage />} />
-                      <Route path="settings" element={<Settings />} />
+
                     </Routes>
                   </AppLayout>
                 </ProtectedRoute>
@@ -100,7 +100,7 @@ function App() {
                       <Route path="track/:id" element={<RouteTracking />} />
                       <Route path="history" element={<DriverHistory />} />
                       <Route path="notifications" element={<NotificationsPage />} />
-                      <Route path="settings" element={<Settings />} />
+
                     </Routes>
                   </AppLayout>
                 </ProtectedRoute>

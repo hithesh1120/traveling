@@ -276,7 +276,6 @@ export default function Signup() {
                             <div style={{ flex: 1 }}>
                                 <Text style={{ fontSize: 12, color: '#8c8c8c', display: 'block', marginBottom: 4 }}>Latitude</Text>
                                 <Input
-                                    placeholder="e.g. 12.9716"
                                     value={coordInput.lat}
                                     onChange={e => setCoordInput(prev => ({ ...prev, lat: e.target.value }))}
                                     onPressEnter={handleGo}
@@ -286,7 +285,6 @@ export default function Signup() {
                             <div style={{ flex: 1 }}>
                                 <Text style={{ fontSize: 12, color: '#8c8c8c', display: 'block', marginBottom: 4 }}>Longitude</Text>
                                 <Input
-                                    placeholder="e.g. 77.5946"
                                     value={coordInput.lng}
                                     onChange={e => setCoordInput(prev => ({ ...prev, lng: e.target.value }))}
                                     onPressEnter={handleGo}

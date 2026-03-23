@@ -124,7 +124,7 @@ export default function CreateDeliveryModal({ onClose, onSuccess }) {
                 <Row gutter={16}>
                     <Col span={12}>
                         <Form.Item name="po_number" label="PO Number" rules={[{ required: true, message: 'PO Number is required' }]}>
-                            <Input placeholder="e.g. PO-2023-001" />
+                            <Input placeholder="Enter tracking/reference number" />
                         </Form.Item>
                     </Col>
                     <Col span={12}>

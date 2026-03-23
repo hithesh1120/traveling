@@ -20,7 +20,7 @@ import {
   BellOutlined,
   AimOutlined,
   HomeOutlined,
-  SettingOutlined,
+
   HistoryOutlined,
   BankOutlined,
   CompassOutlined,
@@ -45,14 +45,7 @@ const ROLE_COLORS = {
   DRIVER: 'volcano',
 };
 
-const getSettingsPath = (role) => {
-  switch (role) {
-    case 'ADMIN': return '/admin/settings';
-    case 'MSME': return '/msme/settings';
-    case 'DRIVER': return '/driver/settings';
-    default: return '/settings';
-  }
-};
+
 
 const getMenuItems = (role) => {
   switch (role) {
@@ -66,23 +59,17 @@ const getMenuItems = (role) => {
         { type: 'divider' },
         { key: '/admin/reports', icon: <BarChartOutlined />, label: <Link to="/admin/reports">Reports</Link> },
         { key: '/admin/users', icon: <TeamOutlined />, label: <Link to="/admin/users">Users</Link> },
-        { type: 'divider' },
-        { key: '/admin/settings', icon: <SettingOutlined />, label: <Link to="/admin/settings">Settings</Link> },
       ];
     case 'MSME':
       return [
         { key: '/msme', icon: <DashboardOutlined />, label: <Link to="/msme">Dashboard</Link> },
         { key: '/msme/shipments', icon: <RocketOutlined />, label: <Link to="/msme/shipments">Shipments</Link> },
         { key: '/msme/locations', icon: <EnvironmentOutlined />, label: <Link to="/msme/locations">Saved Locations</Link> },
-        { type: 'divider' },
-        { key: '/msme/settings', icon: <SettingOutlined />, label: <Link to="/msme/settings">Settings</Link> },
       ];
     case 'DRIVER':
       return [
         { key: '/driver', icon: <DashboardOutlined />, label: <Link to="/driver">Dashboard</Link> },
         { key: '/driver/history', icon: <HistoryOutlined />, label: <Link to="/driver/history">Delivery History</Link> },
-        { type: 'divider' },
-        { key: '/driver/settings', icon: <SettingOutlined />, label: <Link to="/driver/settings">Settings</Link> },
       ];
     default:
       return [];
@@ -176,13 +163,6 @@ export default function AppLayout({ children }) {
         </div>
       ),
       disabled: true,
-    },
-    { type: 'divider' },
-    {
-      key: 'settings',
-      icon: <SettingOutlined />,
-      label: 'Settings',
-      onClick: () => navigate(getSettingsPath(user?.role)),
     },
     { type: 'divider' },
     {

@@ -51,7 +51,6 @@ export default function MyShipments() {
     const [creating, setCreating] = useState(false);
     const [volume, setVolume] = useState(0);
     const [myCompany, setMyCompany] = useState(null);
-    const [otherCompanies, setOtherCompanies] = useState([]);
     const [savedAddresses, setSavedAddresses] = useState([]);
     const [loadingCompanies, setLoadingCompanies] = useState(false);
 
@@ -100,13 +99,11 @@ export default function MyShipments() {
         if (user?.role !== 'MSME') return;
         setLoadingCompanies(true);
         try {
-            const [meRes, othersRes, addrRes] = await Promise.all([
+            const [meRes, addrRes] = await Promise.all([
                 axios.get(`${API}/companies/me`, { headers }),
-                axios.get(`${API}/companies/others`, { headers }),
                 axios.get(`${API}/addresses`, { headers }),
             ]);
             setMyCompany(meRes.data);
-            setOtherCompanies(othersRes.data);
             setSavedAddresses(addrRes.data);
         } catch { message.warning('Could not load company data'); }
         setLoadingCompanies(false);
@@ -190,11 +187,7 @@ export default function MyShipments() {
             const selectedValue = values.vendor_location;
             let selectedLoc = null;
 
-            if (typeof selectedValue === 'string' && selectedValue.startsWith('company-')) {
-                const compId = parseInt(selectedValue.replace('company-', ''));
-                const comp = otherCompanies.find(c => c.id === compId);
-                if (comp) selectedLoc = { address: comp.address, lat: comp.lat, lng: comp.lng, name: comp.name };
-            } else if (typeof selectedValue === 'string' && selectedValue.startsWith('addr-')) {
+            if (typeof selectedValue === 'string' && selectedValue.startsWith('addr-')) {
                 const addrId = parseInt(selectedValue.replace('addr-', ''));
                 const addr = savedAddresses.find(a => a.id === addrId);
                 if (addr) selectedLoc = { address: addr.address, lat: addr.lat, lng: addr.lng, name: addr.label };
@@ -205,11 +198,15 @@ export default function MyShipments() {
                 setCreating(false);
                 return;
             }
-            if (!myCompany || !myCompany.lat || !myCompany.lng) {
-                message.error("Your company has no registered location. Please ask your admin to update it.");
+            if (!myCompany) {
+                message.error("Company data is missing. Please reload the page.");
                 setCreating(false);
                 return;
             }
+            
+            // Extract or fallback lat/lng to avoid blocking orders if Admin hasn't set geolocation
+            const compLat = myCompany.lat || 17.385044;
+            const compLng = myCompany.lng || 78.486671;
 
             const qty = values.item_qty || 1;
             const weight = values.item_weight || 0;
@@ -236,14 +233,14 @@ export default function MyShipments() {
                 finalDropAddress = myCompany.address;
                 finalDropContact = myCompany.name;
                 finalDropPhone = '';
-                finalDropLat = myCompany.lat;
-                finalDropLng = myCompany.lng;
+                finalDropLat = compLat;
+                finalDropLng = compLng;
             } else {
                 finalPickupAddress = myCompany.address;
                 finalPickupContact = myCompany.name;
                 finalPickupPhone = '';
-                finalPickupLat = myCompany.lat;
-                finalPickupLng = myCompany.lng;
+                finalPickupLat = compLat;
+                finalPickupLng = compLng;
 
                 finalDropAddress = selectedLoc.address;
                 finalDropContact = selectedLoc.name;
@@ -432,12 +429,8 @@ export default function MyShipments() {
                                                 loading={loadingCompanies}
                                                 showSearch
                                                 filterOption={(input, option) => (option.label || '').toLowerCase().includes(input.toLowerCase())}
-                                                notFoundContent={otherCompanies.length === 0 && savedAddresses.length === 0 && !loadingCompanies ? 'No locations available' : null}
+                                                notFoundContent={savedAddresses.length === 0 && !loadingCompanies ? 'No saved locations available' : null}
                                                 options={[
-                                                    ...(otherCompanies.length > 0 ? [{
-                                                        label: 'Companies',
-                                                        options: otherCompanies.map(c => ({ label: c.name, value: `company-${c.id}` }))
-                                                    }] : []),
                                                     ...(savedAddresses.length > 0 ? [{
                                                         label: 'Saved Locations',
                                                         options: savedAddresses.map(a => ({ label: a.label, value: `addr-${a.id}` }))
@@ -480,7 +473,7 @@ export default function MyShipments() {
                         </Col>
                         <Col span={12}>
                             <Form.Item name="item_qty" label="Quantity" rules={[{ required: true, message: 'Enter quantity' }]}>
-                                <InputNumber min={1} style={{ width: '100%' }} placeholder="e.g. 10" />
+                                <InputNumber min={1} style={{ width: '100%' }} placeholder="Qty" />
                             </Form.Item>
                         </Col>
                     </Row>
@@ -488,7 +481,7 @@ export default function MyShipments() {
                     <Row gutter={16}>
                         <Col span={12}>
                             <Form.Item name="item_weight" label="Weight (kgs)" rules={[{ required: true, message: 'Enter weight' }]}>
-                                <InputNumber min={0} style={{ width: '100%' }} placeholder="e.g. 50" />
+                                <InputNumber min={0} style={{ width: '100%' }} placeholder="Weight" />
                             </Form.Item>
                         </Col>
                         <Col span={12}>
@@ -505,17 +498,17 @@ export default function MyShipments() {
                     <Row gutter={16}>
                         <Col span={8}>
                             <Form.Item name="item_length" label="Length (m)" rules={[{ required: true, message: 'Required' }]}>
-                                <InputNumber min={0} style={{ width: '100%' }} onChange={recalcVolume} placeholder="e.g. 1.2" />
+                                <InputNumber min={0} style={{ width: '100%' }} onChange={recalcVolume} placeholder="L" />
                             </Form.Item>
                         </Col>
                         <Col span={8}>
                             <Form.Item name="item_width" label="Breadth (m)" rules={[{ required: true, message: 'Required' }]}>
-                                <InputNumber min={0} style={{ width: '100%' }} onChange={recalcVolume} placeholder="e.g. 0.8" />
+                                <InputNumber min={0} style={{ width: '100%' }} onChange={recalcVolume} placeholder="W" />
                             </Form.Item>
                         </Col>
                         <Col span={8}>
                             <Form.Item name="item_height" label="Height (m)" rules={[{ required: true, message: 'Required' }]}>
-                                <InputNumber min={0} style={{ width: '100%' }} onChange={recalcVolume} placeholder="e.g. 0.5" />
+                                <InputNumber min={0} style={{ width: '100%' }} onChange={recalcVolume} placeholder="H" />
                             </Form.Item>
                         </Col>
                     </Row>

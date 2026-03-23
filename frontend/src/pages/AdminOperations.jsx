@@ -2,11 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
     Table, Card, Tag, Button, Modal, Form, Input, InputNumber, Select,
-    Typography, Space, Progress, message, Switch, Tooltip, Checkbox
+    Typography, Space, Progress, message, Switch, Tooltip, Checkbox, Steps, Divider
 } from 'antd';
 import {
     PlusOutlined, CarOutlined, EditOutlined, EyeOutlined, SendOutlined,
-    EnvironmentOutlined, DeleteOutlined, CompassOutlined, GlobalOutlined
+    EnvironmentOutlined, DeleteOutlined, CompassOutlined, GlobalOutlined,
+    BranchesOutlined, CheckCircleOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
@@ -52,6 +53,12 @@ export default function AdminOperations() {
 
     // ── Address labels (for company name lookup) ──
     const [addressMap, setAddressMap] = useState({});
+
+    // ── Create Trip State ──
+    const [tripModal, setTripModal] = useState(false);
+    const [tripVehicleId, setTripVehicleId] = useState(null);
+    const [tripDriverId, setTripDriverId] = useState(null);
+    const [creatingTrip, setCreatingTrip] = useState(false);
 
 
 
@@ -144,6 +151,31 @@ export default function AdminOperations() {
                 setAssigning(false);
             }
         });
+    };
+
+    // ── Create Trip Handler (SRS §4.2) ──
+    const handleCreateTrip = async () => {
+        if (selectedRowKeys.length === 0) { message.error('Select at least one pending shipment'); return; }
+        if (!tripVehicleId) { message.error('Select a vehicle'); return; }
+        if (!tripDriverId) { message.error('Select a driver'); return; }
+        setCreatingTrip(true);
+        try {
+            const res = await axios.post(`${API}/trips`, {
+                shipment_ids: selectedRowKeys,
+                vehicle_id: tripVehicleId,
+                driver_id: tripDriverId,
+            }, { headers });
+            message.success(`Trip ${res.data.trip_number} created with ${res.data.stops.length} stops!`);
+            setTripModal(false);
+            setSelectedRowKeys([]);
+            setTripVehicleId(null);
+            setTripDriverId(null);
+            fetchShipments(filters);
+            fetchVehiclesAndDrivers();
+        } catch (err) {
+            message.error(err.response?.data?.detail || 'Failed to create trip');
+        }
+        setCreatingTrip(false);
     };
 
 
@@ -243,7 +275,7 @@ export default function AdminOperations() {
     // RENDER
     // ═══════════════════════════════════════════════
     return (
-        <div>
+        <>
             {/* ─── SECTION 1: SHIPMENTS ─── */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <Title level={3} style={{ margin: 0 }}>All Shipments</Title>
@@ -254,9 +286,20 @@ export default function AdminOperations() {
             {selectedRowKeys.length > 0 && (
                 <div style={{ marginBottom: 16, padding: '10px 16px', background: '#262626', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span style={{ fontWeight: 500, color: '#fff' }}>
-                        {selectedRowKeys.length} shipment(s) selected — check a vehicle below to dispatch them.
+                        {selectedRowKeys.length} shipment(s) selected
                     </span>
-                    <Button size="small" type="text" style={{ color: '#facc15' }} onClick={() => setSelectedRowKeys([])}>Clear</Button>
+                    <Space>
+                        <Button
+                            type="primary"
+                            icon={<BranchesOutlined />}
+                            onClick={() => setTripModal(true)}
+                            id="create-trip-btn"
+                            style={{ background: '#facc15', color: '#000', border: 'none' }}
+                        >
+                            Create Trip
+                        </Button>
+                        <Button size="small" type="text" style={{ color: '#facc15' }} onClick={() => setSelectedRowKeys([])}>Clear</Button>
+                    </Space>
                 </div>
             )}
 
@@ -294,6 +337,58 @@ export default function AdminOperations() {
                     scroll={{ x: 800 }}
                 />
             </Card>
-        </div>
+
+            {/* ─── Create Trip Modal ─── */}
+            <Modal
+                title={<Space><BranchesOutlined /> Create Optimized Trip</Space>}
+                open={tripModal}
+                onOk={handleCreateTrip}
+                onCancel={() => setTripModal(false)}
+                okText="Create Trip & Notify Drivers"
+                confirmLoading={creatingTrip}
+                okButtonProps={{ style: { background: '#1677ff' } }}
+                width={520}
+            >
+                <div style={{ marginBottom: 16 }}>
+                    <Tag color="blue">{selectedRowKeys.length} shipment(s) selected</Tag>
+                    <div style={{ marginTop: 8, color: '#8c8c8c', fontSize: 12 }}>
+                        Stops will be automatically ordered using route optimization.
+                        Notifications will be sent to all requestors and the assigned driver.
+                    </div>
+                </div>
+                <Divider style={{ margin: '12px 0' }} />
+                <div style={{ marginBottom: 12 }}>
+                    <div style={{ fontWeight: 600, marginBottom: 6 }}>Select Vehicle</div>
+                    <Select
+                        style={{ width: '100%' }}
+                        placeholder="Choose a vehicle"
+                        value={tripVehicleId}
+                        onChange={setTripVehicleId}
+                        id="trip-vehicle-select"
+                        options={vehicles
+                            .filter(v => v.status === 'AVAILABLE' || v.current_driver_id)
+                            .map(v => ({
+                                label: `${v.name} · ${v.plate_number} · ${v.status}`,
+                                value: v.id,
+                            }))
+                        }
+                    />
+                </div>
+                <div>
+                    <div style={{ fontWeight: 600, marginBottom: 6 }}>Assign Driver</div>
+                    <Select
+                        style={{ width: '100%' }}
+                        placeholder="Choose a driver"
+                        value={tripDriverId}
+                        onChange={setTripDriverId}
+                        id="trip-driver-select"
+                        options={drivers.map(d => ({
+                            label: `${d.name || d.email}${d.phone ? ` · ${d.phone}` : ''}`,
+                            value: d.id,
+                        }))}
+                    />
+                </div>
+            </Modal>
+        </>
     );
 }

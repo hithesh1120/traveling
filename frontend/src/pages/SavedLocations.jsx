@@ -37,11 +37,8 @@ export default function SavedLocations() {
         try {
             const payload = { ...values, is_global: true };
             if (editingId) {
-                // Editing not fully supported by backend yet (only create/delete), 
-                // but if we added PUT it would go here. For now, we'll just re-create or show error.
-                // Assuming we might add PUT later, but current task only asked for Create/List/Delete logic in snippets.
-                // Let's implement CREATE for now as user asked to "add locations".
-                message.info('Editing is not supported yet, please delete and re-create.');
+                await axios.put(`${API}/addresses/${editingId}`, payload, { headers });
+                message.success('Location updated successfully');
             } else {
                 await axios.post(`${API}/addresses`, payload, { headers });
                 message.success('Location added successfully');
@@ -51,7 +48,7 @@ export default function SavedLocations() {
             setEditingId(null);
             fetchLocations();
         } catch (error) {
-            message.error('Operation failed');
+            message.error(error.response?.data?.detail || 'Operation failed');
         }
     };
 
@@ -95,9 +92,12 @@ export default function SavedLocations() {
             )
         },
         {
-            title: 'Actions', key: 'actions', width: 80,
+            title: 'Actions', key: 'actions', width: 120,
             render: (_, r) => (
-                <Button icon={<DeleteOutlined />} size="small" danger onClick={() => handleDelete(r.id)} />
+                <Space>
+                    <Button icon={<EditOutlined />} size="small" onClick={() => openEdit(r)} />
+                    <Button icon={<DeleteOutlined />} size="small" danger onClick={() => handleDelete(r.id)} />
+                </Space>
             )
         }
     ];
@@ -133,8 +133,8 @@ export default function SavedLocations() {
                 footer={null}
             >
                 <Form form={form} layout="vertical" onFinish={handleAddEdit}>
-                    <Form.Item name="label" label="Company Name" rules={[{ required: true }]}>
-                        <Input placeholder="e.g. Sanathnagar Industrial Park" />
+                    <Form.Item name="label" label="Location Name" rules={[{ required: true }]}>
+                        <Input placeholder="Enter location name" />
                     </Form.Item>
                     <Form.Item name="address" label="Full Address" rules={[{ required: true }]}>
                         <Input.TextArea rows={2} placeholder="Complete address" />
