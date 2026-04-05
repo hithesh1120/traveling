@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Form, Input, Select, Button, Typography, Alert, Steps, Divider, Row, Col } from 'antd';
 import {
-    MailOutlined, LockOutlined, UserOutlined, BankOutlined, HomeOutlined,
+    MailOutlined, LockOutlined, UserOutlined, BankOutlined,
     EnvironmentOutlined, ArrowLeftOutlined, ArrowRightOutlined, CheckCircleOutlined,
     AimOutlined
 } from '@ant-design/icons';
@@ -167,11 +167,6 @@ export default function Signup() {
                     overflowY: 'auto',
                 }}
             >
-                <div style={{ marginBottom: 16 }}>
-                    <Link to="/" style={{ color: '#8c8c8c', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <HomeOutlined /> Back to Home
-                    </Link>
-                </div>
 
                 <div style={{ marginBottom: 24 }}>
                     <Title level={2} style={{ marginBottom: 8 }}>

@@ -186,15 +186,18 @@ export default function TrackOrders() {
                 centered 
                 bodyStyle={{ padding: 0, overflow: 'hidden', background: '#0a0a0a' }} 
                 destroyOnClose>
-                {cargoViewVehicle && (
-                    <div style={{ height: 500, width: '100%', position: 'relative' }}>
-                        <TruckCargoVisualizer
-                            weightUsed={cargoViewVehicle.current_weight_used} weightCapacity={cargoViewVehicle.weight_capacity}
-                            volumeUsed={cargoViewVehicle.current_volume_used} volumeCapacity={cargoViewVehicle.volume_capacity}
-                            vehicleType={cargoViewVehicle.vehicle_type} vehicleName={cargoViewVehicle.name}
-                            plateNumber={cargoViewVehicle.plate_number} height="100%"
-                            style={{ width: '100%', height: '100%' }} showLabels={false}
-                        />
+                {cargoViewVehicle && (() => {
+                    const cargoItems = getAssignedDisplayShipments(cargoViewVehicle.id).flatMap(s => s.items || []);
+                    return (
+                        <div style={{ height: 500, width: '100%', position: 'relative' }}>
+                            <TruckCargoVisualizer
+                                weightUsed={cargoViewVehicle.current_weight_used} weightCapacity={cargoViewVehicle.weight_capacity}
+                                volumeUsed={cargoViewVehicle.current_volume_used} volumeCapacity={cargoViewVehicle.volume_capacity}
+                                vehicleType={cargoViewVehicle.vehicle_type} vehicleName={cargoViewVehicle.name}
+                                plateNumber={cargoViewVehicle.plate_number} height="100%"
+                                items={cargoItems}
+                                style={{ width: '100%', height: '100%' }} showLabels={false}
+                            />
                         <button
                             onClick={() => setCargoViewVehicle(null)}
                             style={{
@@ -217,7 +220,8 @@ export default function TrackOrders() {
                             ✕
                         </button>
                     </div>
-                )}
+                    );
+                })()}
             </Modal>
         </div>
     );

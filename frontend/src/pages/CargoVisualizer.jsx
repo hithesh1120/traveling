@@ -28,6 +28,7 @@ function getCapacityLevel(pct) {
 export default function CargoVisualizer() {
   const { token } = useAuth();
   const [vehicles, setVehicles] = useState([]);
+  const [shipments, setShipments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedVehicleId, setSelectedVehicleId] = useState(null);
   const [viewMode, setViewMode] = useState('single');
@@ -36,21 +37,25 @@ export default function CargoVisualizer() {
 
   const headers = { Authorization: `Bearer ${token}` };
 
-  const fetchVehicles = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`${API}/vehicles`, { headers });
-      setVehicles(res.data);
-      if (res.data.length > 0 && !selectedVehicleId) {
-        setSelectedVehicleId(res.data[0].id);
+      const [vRes, sRes] = await Promise.all([
+        axios.get(`${API}/vehicles`, { headers }),
+        axios.get(`${API}/shipments`, { headers }),
+      ]);
+      setVehicles(vRes.data);
+      setShipments(sRes.data);
+      if (vRes.data.length > 0 && !selectedVehicleId) {
+        setSelectedVehicleId(vRes.data[0].id);
       }
     } catch {
-      message.error('Failed to load vehicles');
+      message.error('Failed to load data');
     }
     setLoading(false);
   };
 
-  useEffect(() => { fetchVehicles(); }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const filteredVehicles = useMemo(() => {
     let result = vehicles;
@@ -116,7 +121,7 @@ export default function CargoVisualizer() {
             ]}
           />
           <Tooltip title="Refresh data">
-            <Button icon={<ReloadOutlined />} onClick={fetchVehicles} />
+            <Button icon={<ReloadOutlined />} onClick={fetchData} />
           </Tooltip>
         </Space>
       </div>
@@ -197,16 +202,33 @@ export default function CargoVisualizer() {
         <Row gutter={[24, 24]}>
           <Col xs={24} lg={16}>
             <Card bordered={false} bodyStyle={{ padding: 0 }} style={{ borderRadius: 16, overflow: 'hidden' }}>
-              <TruckCargoVisualizer
-                weightUsed={selectedVehicle.current_weight_used}
-                weightCapacity={selectedVehicle.weight_capacity}
-                volumeUsed={selectedVehicle.current_volume_used}
-                volumeCapacity={selectedVehicle.volume_capacity}
-                vehicleType={selectedVehicle.vehicle_type}
-                vehicleName={selectedVehicle.name}
-                plateNumber={selectedVehicle.plate_number}
-                height={480}
-              />
+              {(() => {
+                const vehicleShipments = shipments.filter(s => s.assigned_vehicle_id === selectedVehicle.id);
+                const allItems = vehicleShipments.flatMap(s => s.items || []);
+                // Compute from items if vehicle counters are 0
+                const computedWeight = allItems.reduce((sum, it) => sum + (it.weight || 0) * (it.quantity || 1), 0);
+                const computedVolume = allItems.reduce((sum, it) => {
+                  const l = (it.length || 40) / 100;
+                  const w = (it.width || 40) / 100;
+                  const h = (it.height || 40) / 100;
+                  return sum + l * w * h * (it.quantity || 1);
+                }, 0);
+                const weightUsed = selectedVehicle.current_weight_used > 0 ? selectedVehicle.current_weight_used : computedWeight;
+                const volumeUsed = selectedVehicle.current_volume_used > 0 ? selectedVehicle.current_volume_used : computedVolume;
+                return (
+                  <TruckCargoVisualizer
+                    weightUsed={weightUsed}
+                    weightCapacity={selectedVehicle.weight_capacity}
+                    volumeUsed={volumeUsed}
+                    volumeCapacity={selectedVehicle.volume_capacity}
+                    vehicleType={selectedVehicle.vehicle_type}
+                    vehicleName={selectedVehicle.name}
+                    plateNumber={selectedVehicle.plate_number}
+                    items={allItems}
+                    height={480}
+                  />
+                );
+              })()}
             </Card>
           </Col>
           <Col xs={24} lg={8}>
@@ -250,13 +272,17 @@ export default function CargoVisualizer() {
                   <Text strong style={{ fontSize: 14 }}>⚖️ Weight Capacity</Text>
                 </div>
                 {(() => {
+                  const vehicleShipments = shipments.filter(s => s.assigned_vehicle_id === selectedVehicle.id);
+                  const allItems = vehicleShipments.flatMap(s => s.items || []);
+                  const computedWeight = allItems.reduce((sum, it) => sum + (it.weight || 0) * (it.quantity || 1), 0);
+                  const weightUsed = selectedVehicle.current_weight_used > 0 ? selectedVehicle.current_weight_used : computedWeight;
                   const pct = selectedVehicle.weight_capacity > 0
-                    ? Math.round((selectedVehicle.current_weight_used / selectedVehicle.weight_capacity) * 100) : 0;
+                    ? Math.round((weightUsed / selectedVehicle.weight_capacity) * 100) : 0;
                   const level = getCapacityLevel(pct);
                   return (
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <Text type="secondary">{selectedVehicle.current_weight_used.toLocaleString()} kg used</Text>
+                        <Text type="secondary">{weightUsed.toLocaleString()} kg used</Text>
                         <Tag style={{ border: 0, background: '#f1f5f9', color: '#475569' }}>{level.label}</Tag>
                       </div>
                       <Progress
@@ -268,7 +294,7 @@ export default function CargoVisualizer() {
                       />
                       <Text type="secondary" style={{ fontSize: 11 }}>
                         Capacity: {selectedVehicle.weight_capacity.toLocaleString()} kg
-                        &nbsp;·&nbsp;Remaining: {(selectedVehicle.weight_capacity - selectedVehicle.current_weight_used).toLocaleString()} kg
+                        &nbsp;·&nbsp;Remaining: {Math.max(0, selectedVehicle.weight_capacity - weightUsed).toLocaleString()} kg
                       </Text>
                     </div>
                   );
@@ -281,13 +307,22 @@ export default function CargoVisualizer() {
                   <Text strong style={{ fontSize: 14 }}>📦 Volume Capacity</Text>
                 </div>
                 {(() => {
+                  const vehicleShipments = shipments.filter(s => s.assigned_vehicle_id === selectedVehicle.id);
+                  const allItems = vehicleShipments.flatMap(s => s.items || []);
+                  const computedVolume = allItems.reduce((sum, it) => {
+                    const l = (it.length || 40) / 100;
+                    const w = (it.width || 40) / 100;
+                    const h = (it.height || 40) / 100;
+                    return sum + l * w * h * (it.quantity || 1);
+                  }, 0);
+                  const volumeUsed = selectedVehicle.current_volume_used > 0 ? selectedVehicle.current_volume_used : computedVolume;
                   const pct = selectedVehicle.volume_capacity > 0
-                    ? Math.round((selectedVehicle.current_volume_used / selectedVehicle.volume_capacity) * 100) : 0;
+                    ? Math.round((volumeUsed / selectedVehicle.volume_capacity) * 100) : 0;
                   const level = getCapacityLevel(pct);
                   return (
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <Text type="secondary">{selectedVehicle.current_volume_used.toFixed(1)} m³ used</Text>
+                        <Text type="secondary">{volumeUsed.toFixed(2)} m³ used</Text>
                         <Tag style={{ border: 0, background: '#f1f5f9', color: '#475569' }}>{level.label}</Tag>
                       </div>
                       <Progress
@@ -299,7 +334,7 @@ export default function CargoVisualizer() {
                       />
                       <Text type="secondary" style={{ fontSize: 11 }}>
                         Capacity: {selectedVehicle.volume_capacity.toFixed(1)} m³
-                        &nbsp;·&nbsp;Remaining: {(selectedVehicle.volume_capacity - selectedVehicle.current_volume_used).toFixed(1)} m³
+                        &nbsp;·&nbsp;Remaining: {Math.max(0, selectedVehicle.volume_capacity - volumeUsed).toFixed(2)} m³
                       </Text>
                     </div>
                   );
@@ -341,8 +376,19 @@ export default function CargoVisualizer() {
             </Col>
           )}
           {filteredVehicles.map(v => {
-            const wp = v.weight_capacity > 0 ? Math.round((v.current_weight_used / v.weight_capacity) * 100) : 0;
-            const vp = v.volume_capacity > 0 ? Math.round((v.current_volume_used / v.volume_capacity) * 100) : 0;
+            const vehicleShipments = shipments.filter(s => s.assigned_vehicle_id === v.id);
+            const allItems = vehicleShipments.flatMap(s => s.items || []);
+            const computedWeight = allItems.reduce((sum, it) => sum + (it.weight || 0) * (it.quantity || 1), 0);
+            const computedVolume = allItems.reduce((sum, it) => {
+              const l = (it.length || 40) / 100;
+              const w2 = (it.width || 40) / 100;
+              const h = (it.height || 40) / 100;
+              return sum + l * w2 * h * (it.quantity || 1);
+            }, 0);
+            const weightUsed = v.current_weight_used > 0 ? v.current_weight_used : computedWeight;
+            const volumeUsed = v.current_volume_used > 0 ? v.current_volume_used : computedVolume;
+            const wp = v.weight_capacity > 0 ? Math.round((weightUsed / v.weight_capacity) * 100) : 0;
+            const vp = v.volume_capacity > 0 ? Math.round((volumeUsed / v.volume_capacity) * 100) : 0;
             return (
               <Col xs={24} sm={12} lg={8} xl={6} key={v.id}>
                 <Card
@@ -357,13 +403,14 @@ export default function CargoVisualizer() {
                   hoverable
                 >
                   <TruckCargoVisualizer
-                    weightUsed={v.current_weight_used}
+                    weightUsed={weightUsed}
                     weightCapacity={v.weight_capacity}
-                    volumeUsed={v.current_volume_used}
+                    volumeUsed={volumeUsed}
                     volumeCapacity={v.volume_capacity}
                     vehicleType={v.vehicle_type}
                     vehicleName={v.name}
                     plateNumber={v.plate_number}
+                    items={allItems}
                     height={260}
                     showLabels={true}
                   />

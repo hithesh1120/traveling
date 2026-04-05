@@ -86,8 +86,8 @@ export default function SavedLocations() {
             title: 'Contact Details', key: 'contact',
             render: (_, r) => (
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span>{r.label.split(' ')[0]} Manager</span>
-                    <span style={{ color: '#666', fontSize: '12px' }}>+91 98765 43210</span>
+                    <span>{r.contact ? r.contact : `${r.label.split(' ')[0]} Manager`}</span>
+                    <span style={{ color: '#666', fontSize: '12px' }}>{r.phone ? r.phone : '+91 98765 43210'}</span>
                 </div>
             )
         },

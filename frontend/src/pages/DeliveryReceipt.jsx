@@ -2,10 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { API_BASE_URL } from '../apiConfig';
-import { Spin, Card, Typography, Divider, Row, Col, Button, Image, Tag, Space, message } from 'antd';
-import { PrinterOutlined, DownloadOutlined, CheckCircleFilled } from '@ant-design/icons';
-
-const { Title, Text } = Typography;
+import { Spin, Button, Tag, message } from 'antd';
+import { PrinterOutlined, CheckCircleFilled, CarOutlined, UserOutlined, ClockCircleOutlined, EnvironmentOutlined, ArrowRightOutlined } from '@ant-design/icons';
 
 export default function DeliveryReceipt() {
     const { id } = useParams();
@@ -15,14 +13,8 @@ export default function DeliveryReceipt() {
     useEffect(() => {
         const fetchReceipt = async () => {
             try {
-                // We use the public endpoint if available, or just the shipment details
-                // Since our backend requires auth, this page typically requires login
-                // For a public receipt, we'd need a tokenless endpoint, but for now assuming internal use
                 const token = localStorage.getItem('token');
-                if (!token) {
-                    message.error('Authentication required');
-                    return;
-                }
+                if (!token) { message.error('Authentication required'); return; }
                 const res = await axios.get(`${API_BASE_URL}/shipments/${id}/receipt`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
@@ -37,145 +29,208 @@ export default function DeliveryReceipt() {
         fetchReceipt();
     }, [id]);
 
-    const handlePrint = () => {
-        window.print();
-    };
-
-    if (loading) return <div style={{ textAlign: 'center', padding: 50 }}><Spin size="large" /></div>;
-    if (!shipment) return <div style={{ textAlign: 'center', padding: 50 }}><Text type="danger">Receipt not found</Text></div>;
+    if (loading) return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0f172a' }}>
+            <Spin size="large" />
+        </div>
+    );
+    if (!shipment) return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0f172a' }}>
+            <span style={{ color: '#ef4444', fontSize: 16 }}>Receipt not found</span>
+        </div>
+    );
 
     const { receipt, items, assigned_vehicle, assigned_driver } = shipment;
+    const totalQty = items ? items.reduce((s, i) => s + (i.quantity || 0), 0) : 0;
+    const totalWeight = items ? items.reduce((s, i) => s + (i.weight || 0) * (i.quantity || 1), 0) : (shipment.total_weight || 0);
 
     return (
-        <div style={{ padding: 40, background: '#f5f5f5', minHeight: '100vh' }}>
-            {/* Action Bar - Hidden in Print */}
-            <div className="no-print" style={{ maxWidth: 800, margin: '0 auto 20px', display: 'flex', justifyContent: 'end', gap: 10 }}>
-                <Button type="primary" icon={<PrinterOutlined />} onClick={handlePrint}>Print Receipt</Button>
+        <div style={{ background: '#0f172a', minHeight: '100vh', padding: '32px 16px', fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
+            {/* Action bar */}
+            <div className="no-print" style={{ maxWidth: 860, margin: '0 auto 20px', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                <Button
+                    icon={<PrinterOutlined />}
+                    onClick={() => window.print()}
+                    style={{ background: '#facc15', borderColor: '#facc15', color: '#000', fontWeight: 600 }}
+                >
+                    Print Receipt
+                </Button>
             </div>
 
-            <Card
-                className="receipt-card"
-                style={{ maxWidth: 800, margin: '0 auto', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                bodyStyle={{ padding: 40 }}
-            >
+            <div style={{ maxWidth: 860, margin: '0 auto', borderRadius: 16, overflow: 'hidden', boxShadow: '0 8px 40px rgba(0,0,0,0.5)', border: '1px solid #1e293b' }}>
+
                 {/* Header */}
-                <div style={{ textAlign: 'center', marginBottom: 40 }}>
-                    <Title level={2} style={{ marginBottom: 0 }}>DELIVERY RECEIPT</Title>
-                    <Text type="secondary" style={{ fontSize: 16 }}>Tracking #: {shipment.tracking_number}</Text>
-                    <br />
-                    <Tag color="green" icon={<CheckCircleFilled />} style={{ marginTop: 10, fontSize: 14, padding: '4px 10px' }}>
-                        DELIVERED & CONFIRMED
-                    </Tag>
+                <div style={{ background: '#1e293b', padding: '36px 40px', borderBottom: '3px solid #facc15' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                                <div style={{ width: 40, height: 40, background: '#facc15', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <CarOutlined style={{ color: '#000', fontSize: 20 }} />
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', letterSpacing: 1 }}>DELIVERY RECEIPT</div>
+                                    <div style={{ fontSize: 12, color: '#94a3b8' }}>Enterprise Logistics Operations</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>Tracking Number</div>
+                            <div style={{ fontSize: 18, fontWeight: 800, color: '#facc15', fontFamily: 'monospace', letterSpacing: 2 }}>{shipment.tracking_number}</div>
+                            <div style={{ marginTop: 10 }}>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(250,204,21,0.12)', border: '1px solid rgba(250,204,21,0.3)', borderRadius: 20, padding: '5px 14px', fontSize: 11, fontWeight: 700, color: '#facc15', letterSpacing: 1 }}>
+                                    <CheckCircleFilled style={{ fontSize: 12 }} /> DELIVERED &amp; CONFIRMED
+                                </span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                {/* Details Grid */}
-                <Row gutter={[24, 24]}>
-                    <Col span={12}>
-                        <Title level={5}>FROM (SENDER)</Title>
-                        <Text strong>Logistics Hub / Vendor</Text><br />
-                        <Text>{shipment.pickup_address}</Text><br />
-                        <Text>{shipment.pickup_contact} | {shipment.pickup_phone}</Text>
-                    </Col>
-                    <Col span={12}>
-                        <Title level={5}>TO (RECEIVER)</Title>
-                        <Text strong>{receipt?.receiver_name || 'N/A'}</Text><br />
-                        <Text>{shipment.drop_address}</Text><br />
-                        <Text>{receipt?.receiver_phone || shipment.drop_phone}</Text>
-                    </Col>
-                </Row>
+                {/* Route */}
+                <div style={{ background: '#162032', padding: '20px 40px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', borderBottom: '1px solid #1e293b' }}>
+                    <div style={{ flex: 1, minWidth: 180 }}>
+                        <div style={{ fontSize: 10, color: '#64748b', fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 }}>
+                            <EnvironmentOutlined style={{ color: '#facc15', marginRight: 4 }} />From
+                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', marginBottom: 2 }}>{shipment.pickup_contact || 'Sender'}</div>
+                        <div style={{ fontSize: 12, color: '#94a3b8' }}>{shipment.pickup_address}</div>
+                        {shipment.pickup_phone && <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{shipment.pickup_phone}</div>}
+                    </div>
+                    <div style={{ color: '#facc15', fontSize: 20, flexShrink: 0 }}><ArrowRightOutlined /></div>
+                    <div style={{ flex: 1, minWidth: 180 }}>
+                        <div style={{ fontSize: 10, color: '#64748b', fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 }}>
+                            <EnvironmentOutlined style={{ color: '#ef4444', marginRight: 4 }} />To
+                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', marginBottom: 2 }}>{receipt?.receiver_name || shipment.drop_contact || 'Receiver'}</div>
+                        <div style={{ fontSize: 12, color: '#94a3b8' }}>{shipment.drop_address}</div>
+                        {(receipt?.receiver_phone || shipment.drop_phone) && <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{receipt?.receiver_phone || shipment.drop_phone}</div>}
+                    </div>
+                </div>
 
-                <Divider />
+                {/* Info cards */}
+                <div style={{ background: '#0f172a', padding: '24px 40px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, borderBottom: '1px solid #1e293b' }}>
+                    {[
+                        {
+                            icon: <ClockCircleOutlined style={{ color: '#facc15', fontSize: 18 }} />,
+                            label: 'Delivered At',
+                            value: shipment.delivered_at ? new Date(shipment.delivered_at).toLocaleString() : 'N/A',
+                            bg: 'rgba(250,204,21,0.08)',
+                            border: 'rgba(250,204,21,0.2)',
+                        },
+                        {
+                            icon: <CarOutlined style={{ color: '#34d399', fontSize: 18 }} />,
+                            label: 'Vehicle',
+                            value: assigned_vehicle ? assigned_vehicle.plate_number : 'N/A',
+                            sub: assigned_vehicle?.name,
+                            bg: 'rgba(52,211,153,0.08)',
+                            border: 'rgba(52,211,153,0.2)',
+                        },
+                        {
+                            icon: <UserOutlined style={{ color: '#60a5fa', fontSize: 18 }} />,
+                            label: 'Driver',
+                            value: assigned_driver ? assigned_driver.name : 'N/A',
+                            sub: assigned_driver?.phone,
+                            bg: 'rgba(96,165,250,0.08)',
+                            border: 'rgba(96,165,250,0.2)',
+                        },
+                    ].map((card, i) => (
+                        <div key={i} style={{ background: card.bg, border: `1px solid ${card.border}`, borderRadius: 12, padding: '16px 18px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                            <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                {card.icon}
+                            </div>
+                            <div>
+                                <div style={{ fontSize: 10, color: '#64748b', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>{card.label}</div>
+                                <div style={{ fontSize: 13, color: '#f1f5f9', fontWeight: 600 }}>{card.value}</div>
+                                {card.sub && <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{card.sub}</div>}
+                            </div>
+                        </div>
+                    ))}
+                </div>
 
-                {/* Logistics Info */}
-                <Row gutter={[24, 24]}>
-                    <Col span={8}>
-                        <Text type="secondary">Delivered At</Text><br />
-                        <Text strong>{shipment.delivered_at ? new Date(shipment.delivered_at).toLocaleString() : 'N/A'}</Text>
-                    </Col>
-                    <Col span={8}>
-                        <Text type="secondary">Vehicle</Text><br />
-                        <Text strong>{assigned_vehicle ? `${assigned_vehicle.plate_number} (${assigned_vehicle.name})` : 'N/A'}</Text>
-                    </Col>
-                    <Col span={8}>
-                        <Text type="secondary">Driver</Text><br />
-                        <Text strong>{assigned_driver ? `${assigned_driver.name} (ID: ${assigned_driver.id})` : 'N/A'}</Text>
-                    </Col>
-                </Row>
+                {/* Items table */}
+                <div style={{ background: '#0f172a', padding: '24px 40px', borderBottom: '1px solid #1e293b' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 14 }}>Items Delivered</div>
+                    <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid #1e293b' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <thead>
+                                <tr style={{ background: '#1e293b' }}>
+                                    <th style={{ padding: '12px 16px', color: '#94a3b8', fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'left', width: 36 }}>#</th>
+                                    <th style={{ padding: '12px 16px', color: '#94a3b8', fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'left' }}>Item</th>
+                                    <th style={{ padding: '12px 16px', color: '#94a3b8', fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center' }}>Qty</th>
+                                    <th style={{ padding: '12px 16px', color: '#94a3b8', fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'right' }}>Weight (kg)</th>
+                                    <th style={{ padding: '12px 16px', color: '#94a3b8', fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'right' }}>Dimensions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {items && items.length > 0 ? items.map((item, idx) => (
+                                    <tr key={item.id} style={{ background: idx % 2 === 0 ? '#0f172a' : '#111827', borderBottom: '1px solid #1e293b' }}>
+                                        <td style={{ padding: '14px 16px', color: '#475569', fontSize: 13 }}>{idx + 1}</td>
+                                        <td style={{ padding: '14px 16px', fontSize: 13, verticalAlign: 'top' }}>
+                                            <span style={{ fontWeight: 600, color: '#f1f5f9', display: 'block', marginBottom: 2 }}>{item.name}</span>
+                                            {item.description && <span style={{ fontSize: 11, color: '#475569' }}>{item.description}</span>}
+                                        </td>
+                                        <td style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 600, color: '#facc15', fontSize: 13 }}>{item.quantity}</td>
+                                        <td style={{ padding: '14px 16px', textAlign: 'right', fontSize: 13, color: '#34d399', fontWeight: 600 }}>{item.weight ?? '—'} kg</td>
+                                        <td style={{ padding: '14px 16px', textAlign: 'right', fontSize: 12, color: '#475569' }}>
+                                            {(item.length && item.width && item.height) ? `${item.length}×${item.width}×${item.height} cm` : '—'}
+                                        </td>
+                                    </tr>
+                                )) : (
+                                    <tr><td colSpan={5} style={{ padding: '24px 16px', textAlign: 'center', color: '#475569', fontSize: 13 }}>No items recorded</td></tr>
+                                )}
+                            </tbody>
+                            <tfoot>
+                                <tr style={{ background: '#1e293b', borderTop: '2px solid #facc15' }}>
+                                    <td style={{ padding: '14px 16px', fontSize: 13, fontWeight: 700, color: '#f1f5f9' }} colSpan={2}>TOTAL</td>
+                                    <td style={{ padding: '14px 16px', textAlign: 'center', fontSize: 14, fontWeight: 700, color: '#facc15' }}>{totalQty}</td>
+                                    <td style={{ padding: '14px 16px', textAlign: 'right', fontSize: 14, fontWeight: 700, color: '#34d399' }}>{totalWeight.toFixed(1)} kg</td>
+                                    <td style={{ padding: '14px 16px' }}></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
 
-                <Divider />
-
-                {/* Items */}
-                <Title level={5}>ITEMS DELIVERED</Title>
-                <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20 }}>
-                    <thead>
-                        <tr style={{ background: '#fafafa', borderBottom: '2px solid #f0f0f0' }}>
-                            <th style={{ textAlign: 'left', padding: 8 }}>Item</th>
-                            <th style={{ textAlign: 'right', padding: 8 }}>Qty</th>
-                            <th style={{ textAlign: 'right', padding: 8 }}>Weight</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {items && items.map(item => (
-                            <tr key={item.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                                <td style={{ padding: 8 }}>{item.name} <br /><Text type="secondary" style={{ fontSize: 12 }}>{item.description}</Text></td>
-                                <td style={{ textAlign: 'right', padding: 8 }}>{item.quantity}</td>
-                                <td style={{ textAlign: 'right', padding: 8 }}>{item.weight} kg</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                    <tfoot>
-                        <tr>
-                            <td style={{ padding: 8, fontWeight: 'bold' }}>TOTAL</td>
-                            <td style={{ textAlign: 'right', padding: 8, fontWeight: 'bold' }}>{items ? items.reduce((s, i) => s + i.quantity, 0) : 0}</td>
-                            <td style={{ textAlign: 'right', padding: 8, fontWeight: 'bold' }}>{shipment.total_weight} kg</td>
-                        </tr>
-                    </tfoot>
-                </table>
-
-                {/* Proof of Delivery */}
-                <div style={{ background: '#fafafa', padding: 20, borderRadius: 8, marginTop: 40 }}>
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Title level={5} style={{ marginTop: 0 }}>Proof of Delivery</Title>
-                            {receipt?.photo_url ? (
-                                <Image
-                                    src={receipt.photo_url}
-                                    alt="Proof of Delivery"
-                                    style={{ maxHeight: 150, borderRadius: 4, border: '1px solid #d9d9d9' }}
-                                />
-                            ) : (
-                                <Text type="secondary">No photo proof provided.</Text>
-                            )}
-                        </Col>
-                        <Col span={12}>
-                            <Title level={5} style={{ marginTop: 0 }}>Notes & Exceptions</Title>
-                            <Text>{receipt?.notes || 'No notes provided.'}</Text>
-                        </Col>
-                    </Row>
+                {/* Proof & Notes */}
+                <div style={{ background: '#0f172a', padding: '24px 40px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, borderBottom: '1px solid #1e293b' }}>
+                    <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 12, padding: '20px 22px' }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 12 }}>📷 Proof of Delivery</div>
+                        {receipt?.photo_url
+                            ? <img src={receipt.photo_url} alt="Proof" style={{ maxWidth: '100%', borderRadius: 8, border: '1px solid #334155' }} />
+                            : <span style={{ fontSize: 13, color: '#475569' }}>No photo proof provided.</span>
+                        }
+                    </div>
+                    <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 12, padding: '20px 22px' }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 12 }}>📝 Notes &amp; Exceptions</div>
+                        <span style={{ fontSize: 13, color: receipt?.notes ? '#cbd5e1' : '#475569' }}>
+                            {receipt?.notes || 'No notes provided.'}
+                        </span>
+                    </div>
                 </div>
 
                 {/* Signatures */}
-                <Row gutter={40} style={{ marginTop: 60, textAlign: 'center' }}>
-                    <Col span={12}>
-                        <div style={{ borderTop: '1px solid #000', paddingTop: 10 }}>
-                            <Text strong>Driver Signature</Text><br />
-                            <Text type="secondary">Confirmed Digital</Text>
+                <div style={{ background: '#0f172a', padding: '32px 40px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48 }}>
+                    {[
+                        { label: 'Driver Signature', confirmed: receipt?.driver_confirmed, sub: receipt?.driver_confirmed ? '✓ Confirmed Digital' : 'Pending' },
+                        { label: 'Receiver Signature', confirmed: receipt?.receiver_confirmed, sub: receipt?.receiver_confirmed ? '✓ Confirmed Digital' : 'Pending Confirmation' },
+                    ].map((sig, i) => (
+                        <div key={i} style={{ textAlign: 'center' }}>
+                            <div style={{ height: 52, borderBottom: `2px solid ${sig.confirmed ? '#facc15' : '#334155'}`, marginBottom: 10 }} />
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>{sig.label}</div>
+                            <div style={{ fontSize: 11, color: sig.confirmed ? '#facc15' : '#475569', marginTop: 4 }}>{sig.sub}</div>
                         </div>
-                    </Col>
-                    <Col span={12}>
-                        <div style={{ borderTop: '1px solid #000', paddingTop: 10 }}>
-                            <Text strong>Receiver Signature</Text><br />
-                            <Text type="secondary">Confirmed Digital</Text>
-                        </div>
-                    </Col>
-                </Row>
-            </Card>
+                    ))}
+                </div>
+
+                {/* Footer */}
+                <div style={{ background: '#1e293b', borderTop: '1px solid #334155', textAlign: 'center', padding: '14px 40px', fontSize: 11, color: '#475569' }}>
+                    Enterprise Logistics Operations &nbsp;·&nbsp; {shipment.tracking_number} &nbsp;·&nbsp; Generated {new Date().toLocaleDateString()}
+                </div>
+            </div>
 
             <style>{`
                 @media print {
                     .no-print { display: none !important; }
-                    body { background: white !important; }
-                    .receipt-card { box-shadow: none !important; margin: 0 !important; width: 100% !important; max-width: none !important; }
+                    body { background: #0f172a !important; }
                 }
             `}</style>
         </div>

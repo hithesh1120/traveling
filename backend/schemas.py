@@ -418,6 +418,8 @@ class SavedAddressCreate(BaseModel):
     address: str
     lat: Optional[float] = None
     lng: Optional[float] = None
+    contact: Optional[str] = None
+    phone: Optional[str] = None
     is_global: bool = False
 
 class SavedAddressResponse(SavedAddressCreate):

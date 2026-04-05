@@ -38,7 +38,7 @@ export default function OperationsMonitor() {
 
     useEffect(() => {
         fetchData();
-        intervalRef.current = setInterval(fetchData, 30000); // Auto-refresh every 30s
+        intervalRef.current = setInterval(fetchData, 60000); // Auto-refresh every 60s
         return () => clearInterval(intervalRef.current);
     }, []);
 

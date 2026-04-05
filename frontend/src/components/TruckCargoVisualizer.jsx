@@ -35,73 +35,138 @@ function CargoBox({ position, size, color, tapeColor }) {
   );
 }
 
-function CargoBoxes({ fillPct, cargoWidth, cargoHeight, cargoDepth }) {
+function CargoBoxes({ fillPct, items = [], cargoWidth, cargoHeight, cargoDepth }) {
   const boxes = useMemo(() => {
-    if (fillPct <= 0) return [];
+    if (items.length === 0) {
+      // Fallback to mock logic if no items are passed, maintaining backward compatibility
+      // IF fillPct is very low or 0, return []
+      if (fillPct <= 0) return [];
+      const pad = 0.06;
+      const innerW = cargoWidth - pad * 2;
+      const innerH = cargoHeight - pad * 2;
+      const innerD = cargoDepth - pad * 2;
+      
+      const cols = Math.max(2, Math.round(innerW / 0.38));
+      const layers = Math.max(2, Math.round(innerH / 0.35));
+      const rows = Math.max(3, Math.round(innerD / 0.45));
+      
+      const boxW = innerW / cols;
+      const boxH = innerH / layers;
+      const boxD = innerD / rows;
+      
+      const totalSlots = cols * layers * rows;
+      const filledCount = Math.max(1, Math.round(totalSlots * (fillPct / 100)));
+      
+      const cardboardColors = [
+        '#c4956a', '#b8895e', '#d4a574', '#c09060',
+        '#be9468', '#cbaa7a', '#b38550', '#cfa870',
+      ];
+      const tapeColors = ['#d4c5a0', '#e0d5b5', '#ccbd98'];
+      
+      const seededRand = (i) => {
+        const x = Math.sin(i * 127.1 + 311.7) * 43758.5453;
+        return x - Math.floor(x);
+      };
+      
+      const result = [];
+      let count = 0;
+      for (let layer = 0; layer < layers && count < filledCount; layer++) {
+        for (let row = 0; row < rows && count < filledCount; row++) {
+          for (let col = 0; col < cols && count < filledCount; col++) {
+            const idx = count;
+            const r = seededRand(idx);
+            const shrink = 0.82 + r * 0.14;
+            const x = -innerW / 2 + boxW / 2 + col * boxW;
+            const y = -innerH / 2 + boxH / 2 + layer * boxH;
+            const z = -innerD / 2 + boxD / 2 + row * boxD;
+            result.push({
+              key: `box-${idx}`,
+              position: [x + (seededRand(idx + 50) - 0.5) * 0.02, y, z + (seededRand(idx + 100) - 0.5) * 0.02],
+              size: [boxW * shrink - 0.02, boxH * shrink - 0.02, boxD * shrink - 0.02],
+              color: cardboardColors[idx % cardboardColors.length],
+              tapeColor: tapeColors[idx % tapeColors.length],
+            });
+            count++;
+          }
+        }
+      }
+      return result;
+    }
 
-    const pad = 0.06;
-    const innerW = cargoWidth - pad * 2;
-    const innerH = cargoHeight - pad * 2;
-    const innerD = cargoDepth - pad * 2;
-
-    const cols = Math.max(2, Math.round(innerW / 0.38));
-    const layers = Math.max(2, Math.round(innerH / 0.35));
-    const rows = Math.max(3, Math.round(innerD / 0.45));
-
-    const boxW = innerW / cols;
-    const boxH = innerH / layers;
-    const boxD = innerD / rows;
-
-    const totalSlots = cols * layers * rows;
-    const filledCount = Math.max(1, Math.round(totalSlots * (fillPct / 100)));
-
+    // REAL ITEMS MAPPING LOGIC
+    // We expand quantity, sort them, and pack algorithmically
     const cardboardColors = [
-      '#c4956a', '#b8895e', '#d4a574', '#c09060',
-      '#be9468', '#cbaa7a', '#b38550', '#cfa870',
+      '#c4956a', '#b8895e', '#d4a574', '#c09060', '#be9468', '#cbaa7a', '#b38550', '#cfa870',
     ];
     const tapeColors = ['#d4c5a0', '#e0d5b5', '#ccbd98'];
 
-    const seededRand = (i) => {
-      const x = Math.sin(i * 127.1 + 311.7) * 43758.5453;
-      return x - Math.floor(x);
-    };
+    const expandedItems = [];
+    items.forEach(it => {
+      const q = it.quantity || 1;
+      for (let i = 0; i < q; i++) {
+        expandedItems.push(it);
+      }
+    });
+
+    expandedItems.sort((a, b) => {
+      // dimensions stored in cm; convert to m for sorting
+      const toM = v => (v || 40) / 100;
+      const volA = toM(a.length) * toM(a.width) * toM(a.height);
+      const volB = toM(b.length) * toM(b.width) * toM(b.height);
+      return volB - volA; // largest first
+    });
 
     const result = [];
-    let count = 0;
+    const gap = 0.03;
+    let currentX = -cargoWidth / 2 + gap;
+    let currentY = -cargoHeight / 2 + gap;
+    let currentZ = -cargoDepth / 2 + gap;
+    let rowMaxDepth = 0;
+    let levelMaxHeight = 0;
 
-    for (let layer = 0; layer < layers && count < filledCount; layer++) {
-      for (let row = 0; row < rows && count < filledCount; row++) {
-        for (let col = 0; col < cols && count < filledCount; col++) {
-          const idx = count;
-          const r = seededRand(idx);
-          const shrink = 0.82 + r * 0.14;
+    expandedItems.forEach((item, idx) => {
+      // Dimensions stored in cm → convert to meters, clamp to reasonable display size
+      let l = Math.min((item.length || 40) / 100, cargoDepth * 0.8);
+      let w = Math.min((item.width || 40) / 100, cargoWidth * 0.8);
+      let h = Math.min((item.height || 40) / 100, cargoHeight * 0.8);
 
-          const x = -innerW / 2 + boxW / 2 + col * boxW;
-          const y = -innerH / 2 + boxH / 2 + layer * boxH;
-          const z = -innerD / 2 + boxD / 2 + row * boxD;
-
-          result.push({
-            key: `box-${idx}`,
-            position: [
-              x + (seededRand(idx + 50) - 0.5) * 0.02,
-              y,
-              z + (seededRand(idx + 100) - 0.5) * 0.02,
-            ],
-            size: [
-              boxW * shrink - 0.02,
-              boxH * shrink - 0.02,
-              boxD * shrink - 0.02,
-            ],
-            color: cardboardColors[idx % cardboardColors.length],
-            tapeColor: tapeColors[idx % tapeColors.length],
-          });
-          count++;
-        }
+      // Wrap logically
+      if (currentX + w > cargoWidth / 2) {
+        currentX = -cargoWidth / 2 + gap;
+        currentZ += rowMaxDepth + gap;
+        rowMaxDepth = 0;
       }
-    }
+
+      if (currentZ + l > cargoDepth / 2) {
+        currentX = -cargoWidth / 2 + gap;
+        currentZ = -cargoDepth / 2 + gap;
+        currentY += levelMaxHeight + gap;
+        levelMaxHeight = 0;
+      }
+
+      if (currentY + h > cargoHeight / 2) {
+        return; // Exceeds vertical bounds (can't render)
+      }
+
+      result.push({
+        key: `real-box-${idx}`,
+        position: [
+          currentX + w / 2,
+          currentY + h / 2,
+          currentZ + l / 2,
+        ],
+        size: [w, h, l],
+        color: cardboardColors[idx % cardboardColors.length],
+        tapeColor: tapeColors[idx % tapeColors.length],
+      });
+
+      currentX += w + gap;
+      rowMaxDepth = Math.max(rowMaxDepth, l);
+      levelMaxHeight = Math.max(levelMaxHeight, h);
+    });
 
     return result;
-  }, [fillPct, cargoWidth, cargoHeight, cargoDepth]);
+  }, [fillPct, items, cargoWidth, cargoHeight, cargoDepth]);
 
   return (
     <group>
@@ -270,6 +335,7 @@ export default function TruckCargoVisualizer({
   vehicleType = 'TRUCK',
   vehicleName = 'Vehicle',
   plateNumber = '',
+  items = [],
   style = {},
   height = 420,
   showLabels = true,
@@ -344,7 +410,7 @@ export default function TruckCargoVisualizer({
                 <edgesGeometry args={[new THREE.BoxGeometry(2, 1.5, 4.5)]} />
                 <lineBasicMaterial color="#ef4444" transparent opacity={0.4} linewidth={1} />
             </lineSegments>
-            <CargoBoxes fillPct={displayPct} cargoWidth={2} cargoHeight={1.5} cargoDepth={4.5} />
+            <CargoBoxes fillPct={displayPct} items={items} cargoWidth={2} cargoHeight={1.5} cargoDepth={4.5} />
         </group>
       </Canvas>
 

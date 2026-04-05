@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Form, Input, Button, Typography, Alert, Divider } from 'antd';
-import { MailOutlined, LockOutlined, LoginOutlined, BankOutlined, HomeOutlined } from '@ant-design/icons';
+import { MailOutlined, LockOutlined, LoginOutlined, BankOutlined } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
 
@@ -102,11 +102,6 @@ export default function Login() {
                     maxWidth: 640,
                 }}
             >
-                <div style={{ marginBottom: 24 }}>
-                    <Link to="/" style={{ color: '#8c8c8c', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <HomeOutlined /> Back to Home
-                    </Link>
-                </div>
 
                 <div style={{ marginBottom: 32 }}>
                     <Title level={2} style={{ marginBottom: 8 }}>

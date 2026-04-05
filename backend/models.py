@@ -388,6 +388,8 @@ class SavedAddress(Base):
     address = Column(String, nullable=False)
     lat = Column(Float, nullable=True)
     lng = Column(Float, nullable=True)
+    contact = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
     is_global = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 

@@ -611,6 +611,9 @@ async def create_user_admin(user: schemas.UserCreate, db: AsyncSession = Depends
         name=user.name,
         hashed_password=hashed_pwd,
         role=user.role,
+        status=models.UserStatus.ACTIVE,
+        is_active=True,
+        company_id=admin.company_id,  # Always assign to admin's company
         vendor_id=user.vendor_id,
         license_number=user.license_number,
         rating=user.rating,
@@ -811,6 +814,16 @@ async def create_notification(db: AsyncSession, user_id: int, type: str, title: 
     notif = models.Notification(user_id=user_id, type=type, title=title, message=message)
     db.add(notif)
 
+# --- Helper: Notify Admin ---
+async def notify_admin(db: AsyncSession, company_id: int, type: str, title: str, message: str = ""):
+    admin_result = await db.execute(select(models.User).where(
+        models.User.company_id == company_id,
+        models.User.role == models.UserRole.ADMIN
+    ))
+    admins = admin_result.scalars().all()
+    for admin in admins:
+        await create_notification(db, admin.id, type, title, message)
+
 # --- Helper: Add Timeline Entry ---
 async def add_timeline_entry(db: AsyncSession, shipment_id: int, status, user_id: int = None, notes: str = None):
     entry = models.ShipmentTimeline(
@@ -872,6 +885,8 @@ async def create_shipment(
     await db.flush()
 
     # Add items
+    computed_weight = 0.0
+    computed_volume = 0.0
     for item_data in req.items:
         item = models.ShipmentItem(
             shipment_id=shipment.id,
@@ -884,10 +899,22 @@ async def create_shipment(
             description=item_data.description,
         )
         db.add(item)
+        qty = item_data.quantity or 1
+        computed_weight += (item_data.weight or 0) * qty
+        if item_data.length and item_data.width and item_data.height:
+            # dimensions in cm → convert to m³
+            computed_volume += (item_data.length / 100) * (item_data.width / 100) * (item_data.height / 100) * qty
+
+    # Use computed values if not explicitly provided
+    if not shipment.total_weight or shipment.total_weight == 0:
+        shipment.total_weight = computed_weight
+    if not shipment.total_volume or shipment.total_volume == 0:
+        shipment.total_volume = computed_volume
 
     # Add timeline entry
     await add_timeline_entry(db, shipment.id, models.ShipmentStatus.PENDING, user.id, "Shipment created")
     await create_audit_log(db, user.id, "SHIPMENT_CREATED", "SHIPMENT", shipment.id, f"Shipment {shipment.tracking_number} created")
+    await notify_admin(db, user.company_id, "INFO", "New Shipment Created", f"Shipment {shipment.tracking_number} created by {user.name}")
 
     await db.commit()
     await db.refresh(shipment)
@@ -1290,6 +1317,7 @@ async def auto_dispatch_shipment(
                              f"Assigned to vehicle {vehicle.plate_number}")
     await create_notification(db, driver_id, "ASSIGNMENT", "New Shipment Assigned",
                               f"Shipment {shipment.tracking_number} assigned to you")
+    await notify_admin(db, user.company_id, "ASSIGNMENT", "Shipment Dispatched", f"Shipment {shipment.tracking_number} auto-assigned to vehicle {vehicle.plate_number}")
     await create_audit_log(db, user.id, "SHIPMENT_DISPATCHED", "SHIPMENT", shipment.id,
                            f"Shipment {shipment.tracking_number} dispatched to vehicle {vehicle.plate_number}")
 
@@ -1371,6 +1399,7 @@ async def manual_assign_shipment(
     await add_timeline_entry(db, shipment.id, models.ShipmentStatus.ASSIGNED, user.id, "Manually assigned by admin")
     await create_notification(db, req.driver_id, "ASSIGNMENT", "New Shipment Assigned",
                               f"Shipment {shipment.tracking_number} assigned to you")
+    await notify_admin(db, user.company_id, "ASSIGNMENT", "Shipment Assigned", f"Shipment {shipment.tracking_number} manually assigned to driver {req.driver_id}")
     await create_audit_log(db, user.id, "SHIPMENT_ASSIGNED", "SHIPMENT", shipment.id, 
                            f"Shipment {shipment.tracking_number} manually assigned to driver {req.driver_id}")
 
@@ -1413,6 +1442,7 @@ async def pickup_shipment(
     shipment.picked_up_at = datetime.datetime.utcnow()
     await add_timeline_entry(db, shipment.id, models.ShipmentStatus.PICKED_UP, user.id, "Picked up by driver")
     await create_audit_log(db, user.id, "SHIPMENT_PICKED_UP", "SHIPMENT", shipment.id, f"Shipment {shipment.tracking_number} picked up")
+    await notify_admin(db, user.company_id, "INFO", "Shipment Picked Up", f"Shipment {shipment.tracking_number} picked up by driver {user.name}")
     
     # Sync with TripStop if exists
     stop_res = await db.execute(select(models.TripStop).where(models.TripStop.shipment_id == id))
@@ -1446,6 +1476,7 @@ async def transit_shipment(
     shipment.in_transit_at = datetime.datetime.utcnow()
     await add_timeline_entry(db, shipment.id, models.ShipmentStatus.IN_TRANSIT, user.id, "In transit")
     await create_audit_log(db, user.id, "SHIPMENT_IN_TRANSIT", "SHIPMENT", shipment.id, f"Shipment {shipment.tracking_number} in transit")
+    await notify_admin(db, user.company_id, "INFO", "Shipment In Transit", f"Shipment {shipment.tracking_number} is now in transit")
 
     # Sync with TripStop if exists
     stop_res = await db.execute(select(models.TripStop).where(models.TripStop.shipment_id == id))
@@ -1518,6 +1549,7 @@ async def deliver_shipment(
     await create_notification(db, shipment.sender_id, "ALERT", "Shipment Delivered",
                               f"Your shipment {shipment.tracking_number} has been delivered")
     await create_audit_log(db, user.id, "SHIPMENT_DELIVERED", "SHIPMENT", shipment.id, f"Shipment {shipment.tracking_number} delivered")
+    await notify_admin(db, user.company_id, "SUCCESS", "Shipment Delivered", f"Shipment {shipment.tracking_number} delivered by driver {user.name}")
 
     # Sync with TripStop if exists
     stop_res = await db.execute(select(models.TripStop).where(models.TripStop.shipment_id == id))
@@ -1638,6 +1670,20 @@ async def driver_dashboard(
         select(models.Vehicle).where(models.Vehicle.current_driver_id == user.id)
     )
     vehicle = veh_result.scalars().first()
+
+    if not vehicle:
+        active_veh_result = await db.execute(
+            select(models.Shipment).options(selectinload(models.Shipment.assigned_vehicle)).where(
+                models.Shipment.assigned_driver_id == user.id,
+                models.Shipment.status.in_([
+                    models.ShipmentStatus.ASSIGNED, models.ShipmentStatus.PICKED_UP, models.ShipmentStatus.IN_TRANSIT
+                ])
+            )
+        )
+        first_s = active_veh_result.scalars().first()
+        if first_s and first_s.assigned_vehicle:
+            vehicle = first_s.assigned_vehicle
+
     if vehicle:
         weight_pct = (vehicle.current_weight_used / vehicle.weight_capacity * 100) if vehicle.weight_capacity > 0 else 0
         volume_pct = (vehicle.current_volume_used / vehicle.volume_capacity * 100) if vehicle.volume_capacity > 0 else 0
@@ -1754,6 +1800,45 @@ async def update_vehicle(
     await db.commit()
     await db.refresh(vehicle)
     return vehicle
+
+
+@app.delete("/vehicles/{id}", status_code=204)
+async def delete_vehicle(
+    id: int,
+    db: AsyncSession = Depends(get_db),
+    user: models.User = Depends(get_current_user)
+):
+    if user.role != models.UserRole.ADMIN:
+        raise HTTPException(403, "Not authorized")
+
+    result = await db.execute(select(models.Vehicle).where(models.Vehicle.id == id))
+    vehicle = result.scalars().first()
+    if not vehicle:
+        raise HTTPException(404, "Vehicle not found")
+
+    # Check for active shipments
+    active = await db.execute(
+        select(func.count(models.Shipment.id)).where(
+            models.Shipment.assigned_vehicle_id == id,
+            models.Shipment.status.in_([
+                models.ShipmentStatus.ASSIGNED,
+                models.ShipmentStatus.PICKED_UP,
+                models.ShipmentStatus.IN_TRANSIT,
+            ])
+        )
+    )
+    if active.scalar() > 0:
+        raise HTTPException(400, "Cannot delete vehicle with active shipments")
+
+    # Unlink completed shipments
+    await db.execute(
+        models.Shipment.__table__.update()
+        .where(models.Shipment.assigned_vehicle_id == id)
+        .values(assigned_vehicle_id=None)
+    )
+
+    await db.delete(vehicle)
+    await db.commit()
 
 
 @app.get("/fleet/stats")
@@ -2212,6 +2297,8 @@ async def create_saved_address(
         address=req.address,
         lat=req.lat,
         lng=req.lng,
+        contact=req.contact,
+        phone=req.phone,
         is_global=is_global
     )
     db.add(addr)
@@ -2267,6 +2354,8 @@ async def update_saved_address(
     addr.address = req.address
     addr.lat = req.lat
     addr.lng = req.lng
+    addr.contact = req.contact
+    addr.phone = req.phone
     
     # Only admins can change is_global flag
     if user.role == models.UserRole.ADMIN:

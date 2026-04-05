@@ -40,8 +40,8 @@ export default function DriverHistory() {
     const columns = [
         {
             title: 'Tracking ID',
-            dataIndex: 'tracking_id',
-            key: 'tracking_id',
+            dataIndex: 'tracking_number',
+            key: 'tracking_number',
             render: (text) => <Text strong style={{ fontFamily: 'monospace' }}>{text || '-'}</Text>,
         },
         {
@@ -66,10 +66,10 @@ export default function DriverHistory() {
         },
         {
             title: 'Delivered On',
-            dataIndex: 'updated_at',
+            dataIndex: 'delivered_at',
             key: 'delivered',
-            render: (val) => val ? new Date(val).toLocaleDateString() : '-',
-            sorter: (a, b) => new Date(a.updated_at) - new Date(b.updated_at),
+            render: (val) => val ? new Date(val).toLocaleString() : '-',
+            sorter: (a, b) => new Date(a.delivered_at || 0) - new Date(b.delivered_at || 0),
         },
     ];
 
