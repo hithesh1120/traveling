@@ -278,7 +278,7 @@ export default function AdminOperations() {
         <>
             {/* ─── SECTION 1: SHIPMENTS ─── */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <Title level={3} style={{ margin: 0 }}>All Shipments</Title>
+                <Title level={3} style={{ margin: 0 }}>Active Shipments</Title>
             </div>
 
             <AdvancedFilterBar onFilter={handleFilter} statusOptions={STATUS_OPTIONS} />
@@ -307,7 +307,22 @@ export default function AdminOperations() {
                 <Table
                     rowSelection={rowSelection}
                     columns={shipmentColumns}
-                    dataSource={shipments}
+                    dataSource={shipments.filter(s => s.status !== 'DELIVERED' && s.status !== 'CONFIRMED')}
+                    rowKey="id"
+                    loading={shipLoading}
+                    pagination={{ pageSize: 10 }}
+                    size="middle"
+                    scroll={{ x: 1000 }}
+                />
+            </Card>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <Title level={3} style={{ margin: 0 }}>Completed Shipments</Title>
+            </div>
+            <Card bordered={false} style={{ marginBottom: 32 }}>
+                <Table
+                    columns={shipmentColumns}
+                    dataSource={shipments.filter(s => s.status === 'DELIVERED' || s.status === 'CONFIRMED')}
                     rowKey="id"
                     loading={shipLoading}
                     pagination={{ pageSize: 10 }}

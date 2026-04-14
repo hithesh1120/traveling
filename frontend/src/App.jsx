@@ -29,6 +29,7 @@ import TrackOrders from './pages/TrackOrders';
 import Vehicles from './pages/Vehicles';
 import { AuthProvider } from './context/AuthContext';
 import { ModalProvider } from './context/ModalContext';
+import { NotificationProvider } from './context/NotificationContext';
 
 function App() {
   return (
@@ -44,6 +45,7 @@ function App() {
     >
       <AuthProvider>
         <ModalProvider>
+          <NotificationProvider>
           <Router>
             <Routes>
               <Route path="/" element={<Navigate to="/login" replace />} />
@@ -110,6 +112,7 @@ function App() {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Router>
+        </NotificationProvider>
         </ModalProvider>
       </AuthProvider>
     </ConfigProvider>

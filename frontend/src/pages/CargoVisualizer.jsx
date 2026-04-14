@@ -203,9 +203,13 @@ export default function CargoVisualizer() {
           <Col xs={24} lg={16}>
             <Card bordered={false} bodyStyle={{ padding: 0 }} style={{ borderRadius: 16, overflow: 'hidden' }}>
               {(() => {
-                const vehicleShipments = shipments.filter(s => s.assigned_vehicle_id === selectedVehicle.id);
+                // Only count ACTIVE shipments (not delivered) for capacity display
+                const ACTIVE = ['ASSIGNED', 'PICKED_UP', 'IN_TRANSIT'];
+                const vehicleShipments = shipments.filter(s =>
+                  s.assigned_vehicle_id === selectedVehicle.id && ACTIVE.includes(s.status)
+                );
                 const allItems = vehicleShipments.flatMap(s => s.items || []);
-                // Compute from items if vehicle counters are 0
+                // Compute from items (items may be empty if API doesn't return them)
                 const computedWeight = allItems.reduce((sum, it) => sum + (it.weight || 0) * (it.quantity || 1), 0);
                 const computedVolume = allItems.reduce((sum, it) => {
                   const l = (it.length || 40) / 100;
@@ -213,8 +217,13 @@ export default function CargoVisualizer() {
                   const h = (it.height || 40) / 100;
                   return sum + l * w * h * (it.quantity || 1);
                 }, 0);
-                const weightUsed = selectedVehicle.current_weight_used > 0 ? selectedVehicle.current_weight_used : computedWeight;
-                const volumeUsed = selectedVehicle.current_volume_used > 0 ? selectedVehicle.current_volume_used : computedVolume;
+                // Prefer vehicle counters from backend (dynamically computed server-side)
+                const weightUsed = selectedVehicle.current_weight_used > 0
+                  ? selectedVehicle.current_weight_used
+                  : computedWeight;
+                const volumeUsed = selectedVehicle.current_volume_used > 0
+                  ? selectedVehicle.current_volume_used
+                  : computedVolume;
                 return (
                   <TruckCargoVisualizer
                     weightUsed={weightUsed}
@@ -272,29 +281,33 @@ export default function CargoVisualizer() {
                   <Text strong style={{ fontSize: 14 }}>⚖️ Weight Capacity</Text>
                 </div>
                 {(() => {
-                  const vehicleShipments = shipments.filter(s => s.assigned_vehicle_id === selectedVehicle.id);
+                  const ACTIVE = ['ASSIGNED', 'PICKED_UP', 'IN_TRANSIT'];
+                  const vehicleShipments = shipments.filter(s =>
+                    s.assigned_vehicle_id === selectedVehicle.id && ACTIVE.includes(s.status)
+                  );
                   const allItems = vehicleShipments.flatMap(s => s.items || []);
                   const computedWeight = allItems.reduce((sum, it) => sum + (it.weight || 0) * (it.quantity || 1), 0);
                   const weightUsed = selectedVehicle.current_weight_used > 0 ? selectedVehicle.current_weight_used : computedWeight;
-                  const pct = selectedVehicle.weight_capacity > 0
-                    ? Math.round((weightUsed / selectedVehicle.weight_capacity) * 100) : 0;
+                  const cap = selectedVehicle.weight_capacity;
+                  const pct = cap > 0 ? (weightUsed / cap) * 100 : 0;
+                  const pctDisplay = pct < 0.1 && pct > 0 ? pct.toFixed(2) : pct.toFixed(1);
                   const level = getCapacityLevel(pct);
                   return (
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <Text type="secondary">{weightUsed.toLocaleString()} kg used</Text>
+                        <Text type="secondary">{weightUsed.toFixed(1)} kg used of {cap.toLocaleString()} kg</Text>
                         <Tag style={{ border: 0, background: '#f1f5f9', color: '#475569' }}>{level.label}</Tag>
                       </div>
                       <Progress
-                        percent={pct}
+                        percent={Math.min(pct, 100)}
+                        format={() => `${pctDisplay}%`}
                         strokeColor="#facc15"
                         trailColor="#f1f5f9"
                         strokeWidth={10}
                         style={{ marginBottom: 4 }}
                       />
                       <Text type="secondary" style={{ fontSize: 11 }}>
-                        Capacity: {selectedVehicle.weight_capacity.toLocaleString()} kg
-                        &nbsp;·&nbsp;Remaining: {Math.max(0, selectedVehicle.weight_capacity - weightUsed).toLocaleString()} kg
+                        Remaining: {Math.max(0, cap - weightUsed).toFixed(1)} kg
                       </Text>
                     </div>
                   );
@@ -307,7 +320,10 @@ export default function CargoVisualizer() {
                   <Text strong style={{ fontSize: 14 }}>📦 Volume Capacity</Text>
                 </div>
                 {(() => {
-                  const vehicleShipments = shipments.filter(s => s.assigned_vehicle_id === selectedVehicle.id);
+                  const ACTIVE = ['ASSIGNED', 'PICKED_UP', 'IN_TRANSIT'];
+                  const vehicleShipments = shipments.filter(s =>
+                    s.assigned_vehicle_id === selectedVehicle.id && ACTIVE.includes(s.status)
+                  );
                   const allItems = vehicleShipments.flatMap(s => s.items || []);
                   const computedVolume = allItems.reduce((sum, it) => {
                     const l = (it.length || 40) / 100;
@@ -316,25 +332,34 @@ export default function CargoVisualizer() {
                     return sum + l * w * h * (it.quantity || 1);
                   }, 0);
                   const volumeUsed = selectedVehicle.current_volume_used > 0 ? selectedVehicle.current_volume_used : computedVolume;
-                  const pct = selectedVehicle.volume_capacity > 0
-                    ? Math.round((volumeUsed / selectedVehicle.volume_capacity) * 100) : 0;
+                  const cap = selectedVehicle.volume_capacity;
+                  const pct = cap > 0 ? (volumeUsed / cap) * 100 : 0;
+                  const pctDisplay = pct < 0.1 && pct > 0 ? pct.toFixed(3) : pct < 1 ? pct.toFixed(2) : pct.toFixed(1);
+                  // Smart volume display: show enough decimals so it's never "0.00" unless truly 0
+                  const fmtVol = (v) => {
+                    if (v === 0) return '0.000';
+                    if (v < 0.001) return v.toFixed(6);
+                    if (v < 0.01) return v.toFixed(4);
+                    if (v < 1) return v.toFixed(3);
+                    return v.toFixed(2);
+                  };
                   const level = getCapacityLevel(pct);
                   return (
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <Text type="secondary">{volumeUsed.toFixed(2)} m³ used</Text>
+                        <Text type="secondary">{fmtVol(volumeUsed)} m³ used of {cap.toFixed(2)} m³</Text>
                         <Tag style={{ border: 0, background: '#f1f5f9', color: '#475569' }}>{level.label}</Tag>
                       </div>
                       <Progress
-                        percent={pct}
+                        percent={Math.min(pct, 100)}
+                        format={() => `${pctDisplay}%`}
                         strokeColor="#facc15"
                         trailColor="#f1f5f9"
                         strokeWidth={10}
                         style={{ marginBottom: 4 }}
                       />
                       <Text type="secondary" style={{ fontSize: 11 }}>
-                        Capacity: {selectedVehicle.volume_capacity.toFixed(1)} m³
-                        &nbsp;·&nbsp;Remaining: {Math.max(0, selectedVehicle.volume_capacity - volumeUsed).toFixed(2)} m³
+                        Remaining: {fmtVol(Math.max(0, cap - volumeUsed))} m³
                       </Text>
                     </div>
                   );
@@ -350,10 +375,49 @@ export default function CargoVisualizer() {
                 <Space>
                   <InfoCircleOutlined style={{ color: '#facc15', fontSize: 14 }} />
                   <Text style={{ fontSize: 12, color: '#cc4040' }}>
-                    Drag to rotate · Scroll to zoom · The fill level reflects volume usage.
+                    Drag to rotate · Scroll to zoom · Fill level = volume usage.
                   </Text>
                 </Space>
               </div>
+
+              {/* Assigned Shipments Panel */}
+              {(() => {
+                const vehicleShipments = shipments.filter(s =>
+                  s.assigned_vehicle_id === selectedVehicle.id &&
+                  ['ASSIGNED', 'PICKED_UP', 'IN_TRANSIT'].includes(s.status)
+                );
+                if (vehicleShipments.length === 0) return (
+                  <Card bordered={false} style={{ borderRadius: 16 }}>
+                    <Text type="secondary" style={{ fontSize: 12 }}>No active shipments on this vehicle.</Text>
+                  </Card>
+                );
+                return (
+                  <Card
+                    bordered={false}
+                    style={{ borderRadius: 16 }}
+                    title={<Space><span>🚚 Loaded Shipments</span><Tag color="blue">{vehicleShipments.length}</Tag></Space>}
+                    bodyStyle={{ padding: '8px 16px' }}
+                  >
+                    {vehicleShipments.map(s => (
+                      <div key={s.id} style={{
+                        padding: '8px 0', borderBottom: '1px solid #f0f0f0',
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'
+                      }}>
+                        <div>
+                          <Text strong style={{ fontSize: 12 }}>{s.tracking_number}</Text>
+                          <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
+                            <Tag style={{ fontSize: 10, margin: 0 }} color="processing">{s.status.replace('_', ' ')}</Tag>
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: 11, color: '#595959' }}>{(s.total_weight || 0).toFixed(0)} kg</div>
+                          <div style={{ fontSize: 11, color: '#595959' }}>{(s.total_volume || 0).toFixed(2)} m³</div>
+                        </div>
+                      </div>
+                    ))}
+                  </Card>
+                );
+              })()}
             </Space>
           </Col>
         </Row>

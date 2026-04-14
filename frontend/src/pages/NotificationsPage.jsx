@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { List, Typography, Card, Button, Badge, Tag, Space, message, Spin } from 'antd';
 import { BellOutlined, CheckOutlined, DeleteOutlined, ClockCircleOutlined } from '@ant-design/icons';
-import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { useNotification } from '../context/NotificationContext';
 
 const { Title, Text } = Typography;
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -15,51 +15,12 @@ const NOTIFICATION_TYPE_COLORS = {
 };
 
 export default function NotificationsPage() {
-    const { token } = useAuth();
-    const [notifications, setNotifications] = useState([]);
-    const [loading, setLoading] = useState(true);
-
-    const fetchNotifications = useCallback(async () => {
-        if (!token) return;
-        setLoading(true);
-        try {
-            const res = await axios.get(`${API}/notifications`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setNotifications(res.data);
-        } catch (error) {
-            message.error('Failed to fetch notifications');
-        } finally {
-            setLoading(false);
-        }
-    }, [token]);
-
-    useEffect(() => {
-        fetchNotifications();
-    }, [fetchNotifications]);
-
-    const markAsRead = async (id) => {
-        try {
-            await axios.put(`${API}/notifications/${id}/read`, {}, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-        } catch (error) {
-            message.error('Failed to mark as read');
-        }
-    };
-
-    const markAllRead = async () => {
-        try {
-            await axios.put(`${API}/notifications/read-all`, {}, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-            message.success('All notifications marked as read');
-        } catch (error) {
-            message.error('Failed to mark all as read');
-        }
-    };
+    const {
+        notifications,
+        loading,
+        markAsRead,
+        markAllRead
+    } = useNotification();
 
     return (
         <div style={{ maxWidth: 800, margin: '0 auto' }}>

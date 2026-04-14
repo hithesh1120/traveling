@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Layout, Menu, Avatar, Dropdown, Typography, Tag, Badge, theme, Tooltip, Button } from 'antd';
 import axios from 'axios';
+import { useNotification } from '../context/NotificationContext';
 import {
   DashboardOutlined,
   TeamOutlined,
@@ -82,39 +83,14 @@ export default function AppLayout({ children }) {
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const { token: themeToken } = theme.useToken();
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [notifications, setNotifications] = useState([]);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [hasNewNotif, setHasNewNotif] = useState(false);
-  const prevUnreadRef = useRef(0);
-
-  const fetchNotifications = useCallback(async () => {
-    if (!token) return;
-    try {
-      const res = await axios.get(`${API}/notifications`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = res.data;
-      const newUnread = data.filter(n => !n.read).length;
-
-      // Detect new notifications arriving
-      if (newUnread > prevUnreadRef.current) {
-        setHasNewNotif(true);
-        setTimeout(() => setHasNewNotif(false), 3000);
-      }
-      prevUnreadRef.current = newUnread;
-
-      setNotifications(data.slice(0, 5));
-      setUnreadCount(newUnread);
-    } catch { }
-  }, [token]);
-
-  // Initial fetch + poll every 60 seconds
-  useEffect(() => {
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 60000);
-    return () => clearInterval(interval);
-  }, [fetchNotifications]);
+  const {
+    notifications,
+    unreadCount,
+    hasNewNotif,
+    markAsRead,
+    markAllRead
+  } = useNotification();
 
   const handleLogout = () => {
     logout();
@@ -123,30 +99,12 @@ export default function AppLayout({ children }) {
 
   const handleNotificationClick = async (notification) => {
     if (!notification.read) {
-      try {
-        await axios.put(`${API}/notifications/${notification.id}/read`, {}, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, read: true } : n));
-        setUnreadCount(prev => Math.max(0, prev - 1));
-        prevUnreadRef.current = Math.max(0, prevUnreadRef.current - 1);
-      } catch (error) {
-        console.error('Failed to mark notification as read:', error);
-      }
+      await markAsRead(notification.id);
     }
   };
 
   const handleMarkAllRead = async () => {
-    try {
-      await axios.put(`${API}/notifications/read-all`, {}, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-      setUnreadCount(0);
-      prevUnreadRef.current = 0;
-    } catch (error) {
-      console.error('Failed to mark all as read:', error);
-    }
+    await markAllRead();
   };
 
   const menuItems = getMenuItems(user?.role);

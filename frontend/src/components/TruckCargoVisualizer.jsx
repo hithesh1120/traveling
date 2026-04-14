@@ -183,7 +183,7 @@ function CargoBoxes({ fillPct, items = [], cargoWidth, cargoHeight, cargoDepth }
   );
 }
 
-function TruckModel({ fillPct = 0, vehicleType = 'TRUCK' }) {
+function TruckModel({ fillPct = 0, vehicleType = 'TRUCK', items = [] }) {
   const groupRef = useRef();
 
   const dims = useMemo(() => {
@@ -252,7 +252,7 @@ function TruckModel({ fillPct = 0, vehicleType = 'TRUCK' }) {
             <meshStandardMaterial color="#475569" metalness={0.8} roughness={0.2} />
           </mesh>
         ))}
-        <CargoBoxes fillPct={fillPct} cargoWidth={cw} cargoHeight={ch} cargoDepth={cd} />
+        <CargoBoxes fillPct={fillPct} items={items} cargoWidth={cw} cargoHeight={ch} cargoDepth={cd} />
         <Float speed={2} floatIntensity={0.3} rotationIntensity={0}>
           <Text
             position={[0, ch / 2 + 0.35, 0]}
@@ -263,7 +263,10 @@ function TruckModel({ fillPct = 0, vehicleType = 'TRUCK' }) {
             outlineWidth={0.02}
             outlineColor="#334155"
           >
-            {`${Math.round(fillPct)}%`}
+            {fillPct > 0 && fillPct < 1
+              ? `<1%`
+              : `${Math.round(fillPct)}%`
+            }
           </Text>
         </Float>
       </group>
@@ -345,7 +348,24 @@ export default function TruckCargoVisualizer({
 
   const weightPct = weightCapacity > 0 ? Math.min((weightUsed / weightCapacity) * 100, 100) : 0;
   const volumePct = volumeCapacity > 0 ? Math.min((volumeUsed / volumeCapacity) * 100, 100) : 0;
-  const displayPct = volumePct;
+  // Use the higher of the two percentages as the visual fill indicator
+  const displayPct = Math.max(weightPct, volumePct);
+
+  // Smart formatters for tiny values
+  const fmtPct = (p) => {
+    if (p === 0) return '0.0';
+    if (p < 0.01) return p.toFixed(3);
+    if (p < 0.1) return p.toFixed(2);
+    if (p < 1) return p.toFixed(2);
+    return p.toFixed(1);
+  };
+  const fmtVol = (v) => {
+    if (v === 0) return '0.000';
+    if (v < 0.001) return v.toFixed(6);
+    if (v < 0.01) return v.toFixed(4);
+    if (v < 1) return v.toFixed(3);
+    return v.toFixed(2);
+  };
 
   const toggleFullscreen = useCallback(() => {
     if (!containerRef.current) return;
@@ -405,12 +425,7 @@ export default function TruckCargoVisualizer({
         <directionalLight position={[5, 8, 5]} intensity={1.5} castShadow />
 
         <group scale={[0.8, 0.8, 0.8]} position={[0, 0.5, 0]}>
-            {/* Draw just the bounding box wireframe instead of full truck */}
-            <lineSegments position={[0, 0, 0]}>
-                <edgesGeometry args={[new THREE.BoxGeometry(2, 1.5, 4.5)]} />
-                <lineBasicMaterial color="#ef4444" transparent opacity={0.4} linewidth={1} />
-            </lineSegments>
-            <CargoBoxes fillPct={displayPct} items={items} cargoWidth={2} cargoHeight={1.5} cargoDepth={4.5} />
+            <TruckModel fillPct={displayPct} vehicleType={vehicleType} items={items} />
         </group>
       </Canvas>
 
@@ -428,27 +443,49 @@ export default function TruckCargoVisualizer({
       {/* Panels */}
       <div style={{ position: 'absolute', top: 60, right: 24, display: 'flex', justifyContent: 'flex-end', pointerEvents: 'none', alignItems: 'flex-start' }}>
           
-          {/* Right Panel: Statistics */}
-          <div style={{ background: '#000', border: '1px solid #333', borderRadius: 8, padding: 16, width: 240, pointerEvents: 'auto' }}>
-              <div style={{ color: '#fff', fontWeight: 600, fontSize: 13, marginBottom: 16 }}>Statistics</div>
-              
-              <div style={{ marginBottom: 16 }}>
+      {/* Right Panel: Statistics */}
+          <div style={{ background: '#111', border: '1px solid #2a2a2a', borderRadius: 10, padding: 16, width: 260, pointerEvents: 'auto' }}>
+              <div style={{ color: '#facc15', fontWeight: 700, fontSize: 13, marginBottom: 14, letterSpacing: 1 }}>📊 CAPACITY STATS</div>
+
+              {/* Volume */}
+              <div style={{ marginBottom: 14 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, alignItems: 'center' }}>
-                      <span style={{ color: '#9ca3af', fontSize: 12 }}>Volume Utilization:</span>
-                      <span style={{ background: '#ef4444', color: '#fff', padding: '2px 6px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>{volumePct.toFixed(1)}%</span>
+                      <span style={{ color: '#9ca3af', fontSize: 12 }}>📦 Volume</span>
+                      <span style={{
+                          background: volumePct >= 90 ? '#dc2626' : volumePct >= 60 ? '#ea580c' : '#16a34a',
+                          color: '#fff', padding: '2px 6px', borderRadius: 4, fontSize: 11, fontWeight: 600
+                      }}>{fmtPct(volumePct)}% filled</span>
                   </div>
-                  <div style={{ color: '#d1d5db', fontSize: 11 }}>
-                      {volumeUsed.toFixed(2)} m³ / {volumeCapacity.toFixed(2)} m³
+                  <div style={{ background: '#1f1f1f', borderRadius: 4, height: 6, marginBottom: 6 }}>
+                      <div style={{ width: `${Math.max(Math.min(volumePct, 100), volumePct > 0 ? 2 : 0)}%`, height: '100%', borderRadius: 4, background: volumePct >= 90 ? '#ef4444' : volumePct >= 60 ? '#f97316' : '#22c55e', transition: 'width 0.4s' }} />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#6b7280', fontSize: 11 }}>
+                      <span>Used: <span style={{ color: '#e5e7eb' }}>{fmtVol(volumeUsed)} m³</span></span>
+                      <span>Cap: <span style={{ color: '#e5e7eb' }}>{fmtVol(volumeCapacity)} m³</span></span>
+                  </div>
+                  <div style={{ color: '#4ade80', fontSize: 11, marginTop: 3 }}>
+                      ✓ Remaining: {fmtVol(Math.max(0, volumeCapacity - volumeUsed))} m³
                   </div>
               </div>
 
-              <div style={{ borderTop: '1px solid #333', paddingTop: 12 }}>
+              {/* Weight */}
+              <div style={{ borderTop: '1px solid #2a2a2a', paddingTop: 12 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, alignItems: 'center' }}>
-                      <span style={{ color: '#9ca3af', fontSize: 12 }}>Weight Utilization:</span>
-                      <span style={{ background: '#3b82f6', color: '#fff', padding: '2px 6px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>{weightPct.toFixed(1)}%</span>
+                      <span style={{ color: '#9ca3af', fontSize: 12 }}>⚖️ Weight</span>
+                      <span style={{
+                          background: weightPct >= 90 ? '#dc2626' : weightPct >= 60 ? '#ea580c' : '#2563eb',
+                          color: '#fff', padding: '2px 6px', borderRadius: 4, fontSize: 11, fontWeight: 600
+                      }}>{fmtPct(weightPct)}% filled</span>
                   </div>
-                  <div style={{ color: '#d1d5db', fontSize: 11 }}>
-                      {weightUsed.toFixed(0)} kg / {weightCapacity.toFixed(0)} kg
+                  <div style={{ background: '#1f1f1f', borderRadius: 4, height: 6, marginBottom: 6 }}>
+                      <div style={{ width: `${Math.max(Math.min(weightPct, 100), weightPct > 0 ? 2 : 0)}%`, height: '100%', borderRadius: 4, background: weightPct >= 90 ? '#ef4444' : weightPct >= 60 ? '#f97316' : '#3b82f6', transition: 'width 0.4s' }} />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#6b7280', fontSize: 11 }}>
+                      <span>Used: <span style={{ color: '#e5e7eb' }}>{weightUsed.toFixed(1)} kg</span></span>
+                      <span>Cap: <span style={{ color: '#e5e7eb' }}>{weightCapacity.toFixed(0)} kg</span></span>
+                  </div>
+                  <div style={{ color: '#4ade80', fontSize: 11, marginTop: 3 }}>
+                      ✓ Remaining: {Math.max(0, weightCapacity - weightUsed).toFixed(1)} kg
                   </div>
               </div>
           </div>

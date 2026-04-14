@@ -178,7 +178,7 @@ export default function MyShipments() {
         const l = form.getFieldValue('item_length') || 0;
         const b = form.getFieldValue('item_width') || 0;
         const h = form.getFieldValue('item_height') || 0;
-        setVolume(l * b * h);
+        setVolume((l / 100) * (b / 100) * (h / 100));
     };
 
     const handleCreate = async (values) => {
@@ -213,7 +213,7 @@ export default function MyShipments() {
             const length = values.item_length || 0;
             const width = values.item_width || 0;
             const height = values.item_height || 0;
-            const itemVolume = length * width * height;
+            const itemVolume = (length / 100) * (width / 100) * (height / 100);
             const totalVolume = itemVolume * qty;
             const totalWeight = weight * qty;
             const items = values.material_description ? [{
@@ -335,7 +335,7 @@ export default function MyShipments() {
     return (
         <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                <Title level={3} style={{ margin: 0 }}>All Shipments</Title>
+                <Title level={3} style={{ margin: 0 }}>Active Shipments</Title>
                 {user?.role === 'MSME' && (
                     <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModalOpen(true)}>
                         New Shipment
@@ -358,14 +358,29 @@ export default function MyShipments() {
                 </div>
             )}
 
-            <Card bordered={false} bodyStyle={{ padding: 0 }}>
+            <Card bordered={false} bodyStyle={{ padding: 0 }} style={{ marginBottom: 32 }}>
                 <Table
                     rowSelection={user?.role === 'ADMIN' ? rowSelection : undefined}
                     columns={columns}
-                    dataSource={shipments}
+                    dataSource={shipments.filter(s => s.status !== 'DELIVERED' && s.status !== 'CONFIRMED')}
                     rowKey="id"
                     loading={loading}
-                    pagination={false}
+                    pagination={{ pageSize: 10 }}
+                    size="middle"
+                    scroll={{ x: 1000 }}
+                />
+            </Card>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <Title level={3} style={{ margin: 0 }}>Completed Shipments</Title>
+            </div>
+            <Card bordered={false} bodyStyle={{ padding: 0 }} style={{ marginBottom: 32 }}>
+                <Table
+                    columns={columns}
+                    dataSource={shipments.filter(s => s.status === 'DELIVERED' || s.status === 'CONFIRMED')}
+                    rowKey="id"
+                    loading={loading}
+                    pagination={{ pageSize: 10 }}
                     size="middle"
                     scroll={{ x: 1000 }}
                 />

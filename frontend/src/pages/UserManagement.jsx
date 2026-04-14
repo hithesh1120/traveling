@@ -158,11 +158,15 @@ function AddUserModal({ open, onClose, onSuccess, headers }) {
 
                 <Form.Item name="email" label="Email"
                     rules={[{ required: true, type: 'email', message: 'Valid email required' }]}>
-                    <Input placeholder="user@company.com" />
+                    <Input placeholder="Enter email address" />
                 </Form.Item>
 
-                <Form.Item name="phone" label="Phone">
-                    <Input placeholder="9876543210" />
+                <Form.Item name="phone" label="Phone Number" rules={[
+                    { required: true, message: 'Phone number is required' },
+                    { len: 10, message: 'Phone number must be exactly 10 digits' },
+                    { pattern: /^[0-9]{10}$/, message: 'Only numbers are allowed' }
+                ]}>
+                    <Input placeholder="Enter phone number" maxLength={10} />
                 </Form.Item>
 
                 {selectedRole === 'DRIVER' && (

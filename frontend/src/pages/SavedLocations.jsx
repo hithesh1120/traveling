@@ -140,21 +140,20 @@ export default function SavedLocations() {
                         <Input.TextArea rows={2} placeholder="Complete address" />
                     </Form.Item>
                     <Space style={{ display: 'flex', marginBottom: 8 }} align="baseline">
-                        <Form.Item name="lat" label="Latitude" rules={[{ required: true }]}>
-                            <InputNumber style={{ width: 140 }} precision={6} />
+                        <Form.Item name="lat" label="GPS Latitude" rules={[{ required: true }]}>
+                            <InputNumber style={{ width: 150 }} precision={6} placeholder="e.g. 19.0760" />
                         </Form.Item>
-                        <Form.Item name="lng" label="Longitude" rules={[{ required: true }]}>
-                            <InputNumber style={{ width: 140 }} precision={6} />
-                        </Form.Item>
-                    </Space>
-                    <Space style={{ display: 'flex', marginBottom: 24 }} align="baseline">
-                        <Form.Item name="contact" label="Contact Person">
-                            <Input style={{ width: 140 }} />
-                        </Form.Item>
-                        <Form.Item name="phone" label="Phone Number">
-                            <Input style={{ width: 140 }} />
+                        <Form.Item name="lng" label="GPS Longitude" rules={[{ required: true }]}>
+                            <InputNumber style={{ width: 150 }} precision={6} placeholder="e.g. 72.8777" />
                         </Form.Item>
                     </Space>
+                    <Form.Item name="phone" label="Phone Number" rules={[
+                            { required: true, message: 'Phone number is required' },
+                            { len: 10, message: 'Must be exactly 10 digits' },
+                            { pattern: /^[0-9]{10}$/, message: 'Only numbers are allowed' }
+                        ]}>
+                            <Input placeholder="Enter phone number" maxLength={10} />
+                    </Form.Item>
 
                     <div style={{ textAlign: 'right', marginTop: 16 }}>
                         <Button onClick={() => setIsModalOpen(false)} style={{ marginRight: 8 }}>Cancel</Button>

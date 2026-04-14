@@ -1766,6 +1766,18 @@ async def list_vehicles(
     result = await db.execute(query.order_by(models.Vehicle.created_at.desc()))
     vehicles = result.scalars().all()
 
+    # Dynamically compute utilization
+    for v in vehicles:
+        shipments_res = await db.execute(
+            select(models.Shipment).where(
+                models.Shipment.assigned_vehicle_id == v.id,
+                models.Shipment.status.in_([models.ShipmentStatus.ASSIGNED, models.ShipmentStatus.PICKED_UP, models.ShipmentStatus.IN_TRANSIT])
+            )
+        )
+        active_shipments = shipments_res.scalars().all()
+        v.current_weight_used = sum((s.total_weight or 0) for s in active_shipments)
+        v.current_volume_used = sum((s.total_volume or 0) for s in active_shipments)
+
     if overloaded:
         vehicles = [v for v in vehicles if v.current_weight_used > v.weight_capacity]
 

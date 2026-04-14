@@ -25,7 +25,7 @@ export default function Login() {
             else setError('Unknown role');
         } catch (err) {
             console.error(err);
-            setError('Invalid credentials or server error');
+            setError('Incorrect login email or password');
         } finally {
             setLoading(false);
         }
@@ -132,8 +132,7 @@ export default function Login() {
                         name="email"
                         label="Email Address"
                         rules={[
-                            { required: true, message: 'Email is required' },
-                            { type: 'email', message: 'Enter a valid email' },
+                            { required: true, message: 'Please enter your email' },
                         ]}
                     >
                         <Input prefix={<MailOutlined style={{ color: '#bfbfbf' }} />} placeholder="you@company.com" />
