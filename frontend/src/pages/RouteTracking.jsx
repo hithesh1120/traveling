@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Card, Typography, Tag, Progress, Spin, message, Button, Descriptions, Divider } from 'antd';
 import {
     ArrowLeftOutlined, EnvironmentOutlined, CarOutlined, UserOutlined,
-    ClockCircleOutlined, AimOutlined, CheckCircleOutlined
+    ClockCircleOutlined, AimOutlined, CheckCircleOutlined, LoadingOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
@@ -50,9 +50,24 @@ const vehicleIcon = new L.DivIcon({
     iconAnchor: [18, 18],
 });
 
-// Demo coordinates (Hyderabad area)
-const DEMO_PICKUP = { lat: 17.385044, lng: 78.486671 };
-const DEMO_DROP = { lat: 17.440081, lng: 78.348915 };
+// Geocode an address using Nominatim (OpenStreetMap)
+async function geocodeAddress(address) {
+    if (!address) return null;
+    try {
+        const encoded = encodeURIComponent(address);
+        const res = await fetch(
+            `https://nominatim.openstreetmap.org/search?q=${encoded}&format=json&limit=1`,
+            { headers: { 'Accept-Language': 'en' } }
+        );
+        const data = await res.json();
+        if (data && data.length > 0) {
+            return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+        }
+    } catch (e) {
+        console.error('Geocoding failed for:', address, e);
+    }
+    return null;
+}
 
 // Helper: calculate distance between two lat/lng points (Haversine)
 function haversineDistance(lat1, lng1, lat2, lng2) {
@@ -78,7 +93,13 @@ function interpolateRoute(start, end, numPoints = 50) {
 
 // Status to progress mapping
 const STATUS_PROGRESS = {
-    PENDING: 0, ASSIGNED: 10, PICKED_UP: 30, IN_TRANSIT: 60, DELIVERED: 95, CONFIRMED: 100, CANCELLED: 0,
+    PENDING: 0, ASSIGNED: 10, PICKED_UP: 50, IN_TRANSIT: 70, DELIVERED: 95, CONFIRMED: 100, CANCELLED: 0,
+};
+
+// Status display labels
+const STATUS_LABELS = {
+    PENDING: 'Pending', ASSIGNED: 'Assigned', PICKED_UP: 'Started', IN_TRANSIT: 'Started',
+    DELIVERED: 'Delivered', CONFIRMED: 'Confirmed', CANCELLED: 'Cancelled',
 };
 
 // Fit map bounds to markers
@@ -98,7 +119,10 @@ export default function RouteTracking() {
     const [vehicle, setVehicle] = useState(null);
     const [driver, setDriver] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [geocoding, setGeocoding] = useState(false);
     const [vehiclePos, setVehiclePos] = useState(null);
+    const [pickup, setPickup] = useState(null);
+    const [drop, setDrop] = useState(null);
     const animRef = useRef(null);
 
     const headers = { Authorization: `Bearer ${token}` };
@@ -127,6 +151,31 @@ export default function RouteTracking() {
                         if (d) setDriver(d);
                     } catch { }
                 }
+
+                // Resolve coordinates
+                setGeocoding(true);
+                let pickupCoords = null;
+                let dropCoords = null;
+
+                // Use stored lat/lng if available and valid
+                if (res.data.pickup_lat && res.data.pickup_lng &&
+                    Math.abs(res.data.pickup_lat) <= 90 && Math.abs(res.data.pickup_lng) <= 180) {
+                    pickupCoords = { lat: res.data.pickup_lat, lng: res.data.pickup_lng };
+                } else if (res.data.pickup_address) {
+                    pickupCoords = await geocodeAddress(res.data.pickup_address);
+                }
+
+                if (res.data.drop_lat && res.data.drop_lng &&
+                    Math.abs(res.data.drop_lat) <= 90 && Math.abs(res.data.drop_lng) <= 180) {
+                    dropCoords = { lat: res.data.drop_lat, lng: res.data.drop_lng };
+                } else if (res.data.drop_address) {
+                    dropCoords = await geocodeAddress(res.data.drop_address);
+                }
+
+                if (pickupCoords) setPickup(pickupCoords);
+                if (dropCoords) setDrop(dropCoords);
+                setGeocoding(false);
+
             } catch {
                 message.error('Failed to load shipment');
             }
@@ -135,25 +184,26 @@ export default function RouteTracking() {
         fetchData();
     }, [id]);
 
-    // Coordinates
-    const pickup = useMemo(() => ({
-        lat: shipment?.pickup_lat || DEMO_PICKUP.lat,
-        lng: shipment?.pickup_lng || DEMO_PICKUP.lng,
-    }), [shipment]);
+    const routePoints = useMemo(() => {
+        if (!pickup || !drop) return [];
+        return interpolateRoute(pickup, drop);
+    }, [pickup, drop]);
 
-    const drop = useMemo(() => ({
-        lat: shipment?.drop_lat || DEMO_DROP.lat,
-        lng: shipment?.drop_lng || DEMO_DROP.lng,
-    }), [shipment]);
+    const distance = useMemo(() => {
+        if (!pickup || !drop) return 0;
+        return haversineDistance(pickup.lat, pickup.lng, drop.lat, drop.lng);
+    }, [pickup, drop]);
 
-    const routePoints = useMemo(() => interpolateRoute(pickup, drop), [pickup, drop]);
-    const distance = useMemo(() => haversineDistance(pickup.lat, pickup.lng, drop.lat, drop.lng), [pickup, drop]);
-    const estimatedTime = useMemo(() => Math.round((distance / 30) * 60), [distance]); // 30 km/h avg speed
-    const bounds = useMemo(() => [[pickup.lat, pickup.lng], [drop.lat, drop.lng]], [pickup, drop]);
+    const estimatedTime = useMemo(() => Math.round((distance / 50) * 60), [distance]); // 50 km/h avg speed
+    const bounds = useMemo(() => {
+        if (!pickup || !drop) return null;
+        return [[pickup.lat, pickup.lng], [drop.lat, drop.lng]];
+    }, [pickup, drop]);
 
     // Animate vehicle along route
     useEffect(() => {
-        if (!shipment || !routePoints.length) return;
+        if (!shipment || !routePoints.length || !pickup || !drop) return;
+        clearTimeout(animRef.current);
 
         const progress = STATUS_PROGRESS[shipment.status] || 0;
         if (progress <= 0) {
@@ -165,7 +215,6 @@ export default function RouteTracking() {
             return;
         }
 
-        // Animate from current progress point
         const startIdx = Math.floor((progress / 100) * routePoints.length);
         let currentIdx = startIdx;
 
@@ -189,6 +238,7 @@ export default function RouteTracking() {
 
     const progress = STATUS_PROGRESS[shipment.status] || 0;
     const isLive = ['ASSIGNED', 'PICKED_UP', 'IN_TRANSIT'].includes(shipment.status);
+    const mapCenter = pickup ? [pickup.lat, pickup.lng] : [20.5937, 78.9629]; // India center fallback
 
     return (
         <div style={{ height: 'calc(100vh - 112px)' }}>
@@ -203,6 +253,11 @@ export default function RouteTracking() {
                             LIVE
                         </Tag>
                     )}
+                    {geocoding && (
+                        <Tag icon={<LoadingOutlined />} color="processing">
+                            Locating addresses...
+                        </Tag>
+                    )}
                 </div>
             </div>
 
@@ -211,8 +266,8 @@ export default function RouteTracking() {
                 {/* Map Section */}
                 <div style={{ flex: 1, borderRadius: 12, overflow: 'hidden', border: '1px solid #e8e8e8', position: 'relative' }}>
                     <MapContainer
-                        center={[pickup.lat, pickup.lng]}
-                        zoom={13}
+                        center={mapCenter}
+                        zoom={pickup && drop ? 8 : 5}
                         style={{ height: '100%', width: '100%' }}
                         scrollWheelZoom={true}
                     >
@@ -220,31 +275,37 @@ export default function RouteTracking() {
                             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                         />
-                        <FitBounds bounds={bounds} />
+                        {bounds && <FitBounds bounds={bounds} />}
 
                         {/* Pickup Marker */}
-                        <Marker position={[pickup.lat, pickup.lng]} icon={pickupIcon}>
-                            <Popup>
-                                <strong>Pickup Location</strong><br />
-                                {shipment.pickup_address}
-                            </Popup>
-                        </Marker>
+                        {pickup && (
+                            <Marker position={[pickup.lat, pickup.lng]} icon={pickupIcon}>
+                                <Popup>
+                                    <strong>Pickup Location</strong><br />
+                                    {shipment.pickup_address}
+                                </Popup>
+                            </Marker>
+                        )}
 
                         {/* Drop Marker */}
-                        <Marker position={[drop.lat, drop.lng]} icon={dropIcon}>
-                            <Popup>
-                                <strong>Delivery Location</strong><br />
-                                {shipment.drop_address}
-                            </Popup>
-                        </Marker>
+                        {drop && (
+                            <Marker position={[drop.lat, drop.lng]} icon={dropIcon}>
+                                <Popup>
+                                    <strong>Delivery Location</strong><br />
+                                    {shipment.drop_address}
+                                </Popup>
+                            </Marker>
+                        )}
 
                         {/* Route Line */}
-                        <Polyline
-                            positions={routePoints.map(p => [p.lat, p.lng])}
-                            pathOptions={{ color: '#facc15', weight: 4, opacity: 0.7, dashArray: '10, 6' }}
-                        />
+                        {routePoints.length > 0 && (
+                            <Polyline
+                                positions={routePoints.map(p => [p.lat, p.lng])}
+                                pathOptions={{ color: '#facc15', weight: 4, opacity: 0.7, dashArray: '10, 6' }}
+                            />
+                        )}
                         {/* Completed portion */}
-                        {progress > 0 && (
+                        {progress > 0 && routePoints.length > 0 && (
                             <Polyline
                                 positions={routePoints.slice(0, Math.floor((progress / 100) * routePoints.length)).map(p => [p.lat, p.lng])}
                                 pathOptions={{ color: '#262626', weight: 5, opacity: 0.9 }}
@@ -264,22 +325,38 @@ export default function RouteTracking() {
                     </MapContainer>
 
                     {/* Map Overlay - Distance & ETA */}
-                    <div style={{
-                        position: 'absolute', bottom: 16, left: 16, zIndex: 1000,
-                        background: 'rgba(255,255,255,0.95)', borderRadius: 10, padding: '12px 20px',
-                        boxShadow: '0 4px 16px rgba(0,0,0,0.12)', display: 'flex', gap: 24,
-                        backdropFilter: 'blur(8px)', border: '1px solid rgba(0,0,0,0.06)'
-                    }}>
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: 11, color: '#8c8c8c', textTransform: 'uppercase', letterSpacing: 0.5 }}>Distance</div>
-                            <div style={{ fontSize: 20, fontWeight: 700, color: '#262626' }}>{distance.toFixed(1)} km</div>
+                    {pickup && drop && (
+                        <div style={{
+                            position: 'absolute', bottom: 16, left: 16, zIndex: 1000,
+                            background: 'rgba(255,255,255,0.95)', borderRadius: 10, padding: '12px 20px',
+                            boxShadow: '0 4px 16px rgba(0,0,0,0.12)', display: 'flex', gap: 24,
+                            backdropFilter: 'blur(8px)', border: '1px solid rgba(0,0,0,0.06)'
+                        }}>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: 11, color: '#8c8c8c', textTransform: 'uppercase', letterSpacing: 0.5 }}>Distance</div>
+                                <div style={{ fontSize: 20, fontWeight: 700, color: '#262626' }}>{distance.toFixed(1)} km</div>
+                            </div>
+                            <div style={{ width: 1, background: '#e8e8e8' }} />
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: 11, color: '#8c8c8c', textTransform: 'uppercase', letterSpacing: 0.5 }}>Est. Time</div>
+                                <div style={{ fontSize: 20, fontWeight: 700, color: '#262626' }}>
+                                    {estimatedTime > 60 ? `${Math.round(estimatedTime / 60)}h ${estimatedTime % 60}m` : `${estimatedTime} min`}
+                                </div>
+                            </div>
                         </div>
-                        <div style={{ width: 1, background: '#e8e8e8' }} />
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: 11, color: '#8c8c8c', textTransform: 'uppercase', letterSpacing: 0.5 }}>Est. Time</div>
-                            <div style={{ fontSize: 20, fontWeight: 700, color: '#262626' }}>{estimatedTime} min</div>
+                    )}
+
+                    {/* Geocoding overlay */}
+                    {geocoding && !pickup && (
+                        <div style={{
+                            position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+                            zIndex: 1000, background: 'rgba(255,255,255,0.9)', borderRadius: 12,
+                            padding: '20px 32px', textAlign: 'center', boxShadow: '0 4px 16px rgba(0,0,0,0.12)'
+                        }}>
+                            <Spin size="large" />
+                            <div style={{ marginTop: 12, color: '#595959' }}>Locating addresses on map...</div>
                         </div>
-                    </div>
+                    )}
                 </div>
 
                 {/* Order Details Panel */}
@@ -300,14 +377,14 @@ export default function RouteTracking() {
                             <DetailRow icon={<CarOutlined />} label="Driver" value={driver?.name || 'Not assigned'} />
                             <DetailRow icon={<CarOutlined />} label="Vehicle" value={vehicle ? `${vehicle.name} (${vehicle.plate_number})` : 'Not assigned'} />
                             <DetailRow icon={<ClockCircleOutlined />} label="Status" value={
-                                <Tag style={{ margin: 0 }}>{shipment.status.replace(/_/g, ' ')}</Tag>
+                                <Tag style={{ margin: 0 }}>{STATUS_LABELS[shipment.status] || shipment.status.replace(/_/g, ' ')}</Tag>
                             } />
                             <DetailRow icon={<ClockCircleOutlined />} label="Est. Arrival" value={
                                 shipment.status === 'DELIVERED' || shipment.status === 'CONFIRMED'
                                     ? 'Delivered'
-                                    : `~${estimatedTime} min`
+                                    : estimatedTime > 0 ? `~${estimatedTime > 60 ? `${Math.round(estimatedTime / 60)}h ${estimatedTime % 60}m` : `${estimatedTime} min`}` : 'Calculating...'
                             } />
-                            <DetailRow icon={<EnvironmentOutlined />} label="Total Distance" value={`${distance.toFixed(1)} km`} />
+                            <DetailRow icon={<EnvironmentOutlined />} label="Total Distance" value={distance > 0 ? `${distance.toFixed(1)} km` : 'Calculating...'} />
                         </div>
                     </Card>
 
@@ -333,13 +410,23 @@ export default function RouteTracking() {
                             <Text style={{ fontSize: 11, color: '#8c8c8c' }}>Delivered</Text>
                         </div>
 
-                        {/* Status steps */}
+                        {/* Status steps — using simplified labels */}
                         <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            {['PENDING', 'ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'DELIVERED', 'CONFIRMED'].map((s, i) => {
-                                const isCompleted = STATUS_PROGRESS[shipment.status] >= STATUS_PROGRESS[s];
-                                const isCurrent = shipment.status === s;
+                            {[
+                                { key: 'ASSIGNED', label: 'ASSIGNED', progress: 10 },
+                                { key: 'STARTED', label: 'STARTED', progress: 50 },
+                                { key: 'DELIVERED', label: 'DELIVERED', progress: 95 },
+                                { key: 'CONFIRMED', label: 'CONFIRMED', progress: 100 },
+                            ].map((step, i) => {
+                                const isCompleted = progress >= step.progress;
+                                const isCurrent = (
+                                    (step.key === 'ASSIGNED' && shipment.status === 'ASSIGNED') ||
+                                    (step.key === 'STARTED' && ['PICKED_UP', 'IN_TRANSIT'].includes(shipment.status)) ||
+                                    (step.key === 'DELIVERED' && shipment.status === 'DELIVERED') ||
+                                    (step.key === 'CONFIRMED' && shipment.status === 'CONFIRMED')
+                                );
                                 return (
-                                    <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <div key={step.key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                         <div style={{
                                             width: 20, height: 20, borderRadius: '50%',
                                             background: isCompleted ? '#262626' : '#f0f0f0',
@@ -354,7 +441,7 @@ export default function RouteTracking() {
                                             fontWeight: isCurrent ? 600 : 400,
                                             color: isCompleted ? '#262626' : '#bfbfbf',
                                         }}>
-                                            {s.replace(/_/g, ' ')}
+                                            {step.label}
                                         </Text>
                                     </div>
                                 );
@@ -382,10 +469,12 @@ export default function RouteTracking() {
                                 <div style={{ marginBottom: 8 }}>
                                     <Text style={{ fontSize: 11, color: '#8c8c8c' }}>PICKUP</Text>
                                     <div style={{ fontSize: 13, color: '#262626' }}>{shipment.pickup_address}</div>
+                                    {pickup && <div style={{ fontSize: 11, color: '#bfbfbf' }}>{pickup.lat.toFixed(4)}, {pickup.lng.toFixed(4)}</div>}
                                 </div>
                                 <div>
                                     <Text style={{ fontSize: 11, color: '#8c8c8c' }}>DROP</Text>
                                     <div style={{ fontSize: 13, color: '#262626' }}>{shipment.drop_address}</div>
+                                    {drop && <div style={{ fontSize: 11, color: '#bfbfbf' }}>{drop.lat.toFixed(4)}, {drop.lng.toFixed(4)}</div>}
                                 </div>
                             </div>
                         </div>

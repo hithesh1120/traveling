@@ -47,7 +47,9 @@
   padding: 0;
 }
 
-html, body, #root {
+html,
+body,
+#root {
   width: 100%;
   margin: 0;
   padding: 0;
@@ -314,4 +316,17 @@ h3 {
 
 .custom-sidebar-menu .ant-menu-item a {
   color: inherit !important;
+}
+
+/* Dark tooltip for sidebar nav items */
+.ant-tooltip .ant-tooltip-inner {
+  background: #262626 !important;
+  color: #fff !important;
+  font-weight: 500;
+  font-size: 13px;
+  border-radius: 6px;
+}
+
+.ant-tooltip .ant-tooltip-arrow::before {
+  background: #262626 !important;
 }

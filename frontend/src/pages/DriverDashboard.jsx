@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Card, Row, Col, Statistic, Table, Tag, Button, Typography, Space, message, Spin } from 'antd';
+import { Card, Row, Col, Statistic, Table, Tag, Button, Typography, Space, message, Spin, Modal, Form, Input } from 'antd';
 import { CarOutlined, CheckCircleOutlined, ClockCircleOutlined, SendOutlined, DashboardOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -13,6 +13,23 @@ const STATUS_COLORS = {
     IN_TRANSIT: 'processing', DELIVERED: 'green', CONFIRMED: 'success', CANCELLED: 'red',
 };
 
+// Map backend statuses to display labels
+const STATUS_DISPLAY = {
+    PENDING: 'PENDING',
+    ASSIGNED: 'ASSIGNED',
+    PICKED_UP: 'STARTED',
+    IN_TRANSIT: 'STARTED',
+    DELIVERED: 'DELIVERED',
+    CONFIRMED: 'CONFIRMED',
+    CANCELLED: 'CANCELLED',
+};
+
+function getOrderType(shipment) {
+    if (shipment.description?.includes('Order Type: Collection')) return 'Collection';
+    if (shipment.description?.includes('Order Type: Delivery')) return 'Delivery';
+    return null;
+}
+
 export default function DriverDashboard() {
     const { token } = useAuth();
     const navigate = useNavigate();
@@ -20,6 +37,10 @@ export default function DriverDashboard() {
     const [shipments, setShipments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(null);
+    const [deliverModalOpen, setDeliverModalOpen] = useState(false);
+    const [deliverShipmentId, setDeliverShipmentId] = useState(null);
+    const [deliverForm] = Form.useForm();
+    const [delivering, setDelivering] = useState(false);
 
     const headers = { Authorization: `Bearer ${token}` };
 
@@ -38,20 +59,48 @@ export default function DriverDashboard() {
 
     useEffect(() => { fetchData(); }, []);
 
-    const handleAction = async (id, action) => {
+    // "Start" = pickup + in-transit in one step
+    const handleStart = async (id) => {
         setActionLoading(id);
         try {
-            if (action === 'deliver') {
-                navigate(`/driver/shipments/${id}`);
-                return;
-            }
-            await axios.post(`${API}/shipments/${id}/${action}`, {}, { headers });
-            message.success('Status updated!');
+            // First: pickup
+            await axios.post(`${API}/shipments/${id}/pickup`, {}, { headers });
+            // Then: in-transit
+            await axios.post(`${API}/shipments/${id}/in-transit`, {}, { headers });
+            message.success('Shipment started! Status: In Transit');
             fetchData();
         } catch (err) {
-            message.error(err.response?.data?.detail || 'Action failed');
+            // If already picked up, try just in-transit
+            try {
+                await axios.post(`${API}/shipments/${id}/in-transit`, {}, { headers });
+                message.success('Shipment started! Status: In Transit');
+                fetchData();
+            } catch (err2) {
+                message.error(err2.response?.data?.detail || 'Failed to start shipment');
+            }
         }
         setActionLoading(null);
+    };
+
+    const openDeliverModal = (id) => {
+        setDeliverShipmentId(id);
+        setDeliverModalOpen(true);
+    };
+
+    const handleDeliver = async (values) => {
+        if (!deliverShipmentId) return;
+        setDelivering(true);
+        try {
+            await axios.post(`${API}/shipments/${deliverShipmentId}/deliver`, values, { headers });
+            message.success('Shipment delivered successfully!');
+            setDeliverModalOpen(false);
+            deliverForm.resetFields();
+            setDeliverShipmentId(null);
+            fetchData();
+        } catch (err) {
+            message.error(err.response?.data?.detail || 'Delivery failed');
+        }
+        setDelivering(false);
     };
 
     const columns = [
@@ -59,20 +108,55 @@ export default function DriverDashboard() {
             title: 'Tracking #', dataIndex: 'tracking_number', key: 'tracking',
             render: (t, r) => <a onClick={() => navigate(`/driver/shipments/${r.id}`)}>{t}</a>
         },
+        {
+            title: 'Type', key: 'order_type', width: 110,
+            render: (_, r) => {
+                const type = getOrderType(r);
+                if (!type) return <span style={{ color: '#bfbfbf' }}>—</span>;
+                return <Tag color={type === 'Collection' ? 'orange' : 'blue'}>{type}</Tag>;
+            }
+        },
         { title: 'Pickup', dataIndex: 'pickup_address', key: 'pickup', ellipsis: true },
         { title: 'Drop', dataIndex: 'drop_address', key: 'drop', ellipsis: true },
         { title: 'Weight', dataIndex: 'total_weight', key: 'weight', render: v => `${v} kg`, width: 90 },
         {
             title: 'Status', dataIndex: 'status', key: 'status', width: 120,
-            render: s => <span style={{ fontWeight: 500 }}>{s.replace(/_/g, ' ')}</span>
+            render: s => {
+                const label = STATUS_DISPLAY[s] || s.replace(/_/g, ' ');
+                const color = STATUS_COLORS[s] || 'default';
+                return <Tag color={color} style={{ fontWeight: 500 }}>{label}</Tag>;
+            }
         },
         {
-            title: 'Action', key: 'action', width: 140,
+            title: 'Action', key: 'action', width: 120,
             render: (_, r) => {
-                if (r.status === 'ASSIGNED') return <Button size="small" type="primary" loading={actionLoading === r.id} onClick={() => handleAction(r.id, 'pickup')}>Pick Up</Button>;
-                if (r.status === 'PICKED_UP') return <Button size="small" type="primary" loading={actionLoading === r.id} onClick={() => handleAction(r.id, 'in-transit')}>Start Transit</Button>;
-                if (r.status === 'IN_TRANSIT') return <Button size="small" type="primary" style={{ background: '#52c41a' }} onClick={() => handleAction(r.id, 'deliver')}>Deliver</Button>;
-                return <span style={{ fontWeight: 500 }}>{r.status.replace(/_/g, ' ')}</span>;
+                if (r.status === 'ASSIGNED') {
+                    return (
+                        <Button
+                            size="small"
+                            type="primary"
+                            loading={actionLoading === r.id}
+                            onClick={() => handleStart(r.id)}
+                            style={{ background: '#1677ff' }}
+                        >
+                            Start
+                        </Button>
+                    );
+                }
+                if (r.status === 'PICKED_UP' || r.status === 'IN_TRANSIT') {
+                    return (
+                        <Button
+                            size="small"
+                            type="primary"
+                            loading={actionLoading === r.id}
+                            onClick={() => openDeliverModal(r.id)}
+                            style={{ background: '#52c41a', borderColor: '#52c41a' }}
+                        >
+                            Deliver
+                        </Button>
+                    );
+                }
+                return <Tag color={STATUS_COLORS[r.status] || 'default'} style={{ fontWeight: 500 }}>{STATUS_DISPLAY[r.status] || r.status.replace(/_/g, ' ')}</Tag>;
             },
         },
     ];
@@ -115,7 +199,7 @@ export default function DriverDashboard() {
             </Row>
 
             <Card title={`Active Shipments (${activeShipments.length})`} bordered={false} style={{ marginBottom: 24 }}>
-                <Table columns={columns} dataSource={activeShipments} rowKey="id" loading={loading} pagination={false} size="middle" />
+                <Table columns={columns} dataSource={activeShipments} rowKey="id" loading={loading} pagination={false} size="middle" scroll={{ x: 900 }} />
             </Card>
 
             <Card title={`Completed (${completedShipments.length})`} bordered={false}>
@@ -126,8 +210,35 @@ export default function DriverDashboard() {
                     loading={loading}
                     pagination={false}
                     size="middle"
+                    scroll={{ x: 900 }}
                 />
             </Card>
+
+            {/* Deliver Modal */}
+            <Modal
+                title="Confirm Delivery"
+                open={deliverModalOpen}
+                onCancel={() => { setDeliverModalOpen(false); deliverForm.resetFields(); }}
+                footer={null}
+            >
+                <Form form={deliverForm} layout="vertical" onFinish={handleDeliver}>
+                    <Form.Item name="receiver_name" label="Receiver Name" rules={[{ required: true, message: 'Please enter receiver name' }]}>
+                        <Input placeholder="Name of the person receiving" />
+                    </Form.Item>
+                    <Form.Item name="receiver_phone" label="Receiver Phone">
+                        <Input placeholder="Phone number" />
+                    </Form.Item>
+                    <Form.Item name="photo_url" label="Proof of Delivery (Photo URL)">
+                        <Input placeholder="https://example.com/photo.jpg" />
+                    </Form.Item>
+                    <Form.Item name="notes" label="Notes">
+                        <Input.TextArea rows={2} placeholder="Any notes about the delivery" />
+                    </Form.Item>
+                    <Button type="primary" htmlType="submit" loading={delivering} block style={{ background: '#52c41a', borderColor: '#52c41a' }}>
+                        Confirm Delivery
+                    </Button>
+                </Form>
+            </Modal>
         </div>
     );
 }

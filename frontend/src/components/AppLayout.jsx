@@ -52,25 +52,25 @@ const getMenuItems = (role) => {
   switch (role) {
     case 'ADMIN':
       return [
-        { key: '/admin', icon: <DashboardOutlined />, label: <Link to="/admin">Dashboard</Link> },
-        { key: '/admin/shipments', icon: <RocketOutlined />, label: <Link to="/admin/shipments">Orders</Link> },
-        { key: '/admin/track-orders', icon: <AimOutlined />, label: <Link to="/admin/track-orders">Track Orders</Link> },
-        { key: '/admin/vehicles', icon: <CarOutlined />, label: <Link to="/admin/vehicles">Vehicles</Link> },
-        { key: '/admin/companies', icon: <BankOutlined />, label: <Link to="/admin/companies">Companies</Link> },
+        { key: '/admin', icon: <DashboardOutlined />, label: <Link to="/admin">Dashboard</Link>, title: 'Dashboard' },
+        { key: '/admin/shipments', icon: <RocketOutlined />, label: <Link to="/admin/shipments">Orders</Link>, title: 'Orders' },
+        { key: '/admin/track-orders', icon: <AimOutlined />, label: <Link to="/admin/track-orders">Track Orders</Link>, title: 'Track Orders' },
+        { key: '/admin/vehicles', icon: <CarOutlined />, label: <Link to="/admin/vehicles">Vehicles</Link>, title: 'Vehicles' },
+        { key: '/admin/companies', icon: <BankOutlined />, label: <Link to="/admin/companies">Companies</Link>, title: 'Companies' },
         { type: 'divider' },
-        { key: '/admin/reports', icon: <BarChartOutlined />, label: <Link to="/admin/reports">Reports</Link> },
-        { key: '/admin/users', icon: <TeamOutlined />, label: <Link to="/admin/users">Users</Link> },
+        { key: '/admin/reports', icon: <BarChartOutlined />, label: <Link to="/admin/reports">Reports</Link>, title: 'Reports' },
+        { key: '/admin/users', icon: <TeamOutlined />, label: <Link to="/admin/users">Users</Link>, title: 'Users' },
       ];
     case 'MSME':
       return [
-        { key: '/msme', icon: <DashboardOutlined />, label: <Link to="/msme">Dashboard</Link> },
-        { key: '/msme/shipments', icon: <RocketOutlined />, label: <Link to="/msme/shipments">Shipments</Link> },
-        { key: '/msme/locations', icon: <EnvironmentOutlined />, label: <Link to="/msme/locations">Saved Locations</Link> },
+        { key: '/msme', icon: <DashboardOutlined />, label: <Link to="/msme">Dashboard</Link>, title: 'Dashboard' },
+        { key: '/msme/shipments', icon: <RocketOutlined />, label: <Link to="/msme/shipments">Shipments</Link>, title: 'Shipments' },
+        { key: '/msme/locations', icon: <EnvironmentOutlined />, label: <Link to="/msme/locations">Saved Locations</Link>, title: 'Saved Locations' },
       ];
     case 'DRIVER':
       return [
-        { key: '/driver', icon: <DashboardOutlined />, label: <Link to="/driver">Dashboard</Link> },
-        { key: '/driver/history', icon: <HistoryOutlined />, label: <Link to="/driver/history">Delivery History</Link> },
+        { key: '/driver', icon: <DashboardOutlined />, label: <Link to="/driver">Dashboard</Link>, title: 'Dashboard' },
+        { key: '/driver/history', icon: <HistoryOutlined />, label: <Link to="/driver/history">Delivery History</Link>, title: 'Delivery History' },
       ];
     default:
       return [];
@@ -185,8 +185,10 @@ export default function AppLayout({ children }) {
             items={menuItems}
             style={{ borderRight: 0, marginTop: 8, background: 'transparent', flex: 1, overflowY: 'auto' }}
             className="custom-sidebar-menu"
+            inlineCollapsed={collapsed}
             tooltipProps={{
-              overlayInnerStyle: { background: '#fff', color: '#262626', fontWeight: 500 },
+              placement: 'right',
+              overlayInnerStyle: { background: '#262626', color: '#fff', fontWeight: 500, fontSize: 13 },
               overlayStyle: { zIndex: 1100 },
             }}
           />

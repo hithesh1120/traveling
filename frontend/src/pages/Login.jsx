@@ -25,7 +25,7 @@ export default function Login() {
             else setError('Unknown role');
         } catch (err) {
             console.error(err);
-            setError('Incorrect login email or password');
+            setError('Invalid userid or password');
         } finally {
             setLoading(false);
         }
@@ -112,13 +112,10 @@ export default function Login() {
 
                 {error && (
                     <Alert
-                        message="Error"
-                        description={error}
+                        message="Invalid userid or password"
                         type="error"
                         showIcon
-                        style={{ marginBottom: 24 }}
-                        closable
-                        onClose={() => setError('')}
+                        style={{ marginBottom: 24, border: '1px solid #ff4d4f' }}
                     />
                 )}
 

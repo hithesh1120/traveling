@@ -320,6 +320,8 @@ export default function MyShipments() {
         },
         {
             title: 'Created', dataIndex: 'created_at', key: 'created', width: 110,
+            defaultSortOrder: 'descend',
+            sorter: (a, b) => new Date(a.created_at) - new Date(b.created_at),
             render: d => new Date(d).toLocaleDateString()
         },
         {
