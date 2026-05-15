@@ -9,7 +9,6 @@ import { useAuth } from '../context/AuthContext';
 import { SHIPMENT_STATUS_COLORS } from '../utils/statusColors';
 
 const { Title, Text } = Typography;
-const { RangePicker } = DatePicker;
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export default function Reports() {
@@ -33,9 +32,9 @@ export default function Reports() {
             const params = new URLSearchParams();
             if (filters.status) params.append('status', filters.status);
             if (filters.driver_id) params.append('driver_id', filters.driver_id);
-            if (filters.dateRange) {
-                params.append('start_date', filters.dateRange[0].format('YYYY-MM-DD'));
-                params.append('end_date', filters.dateRange[1].format('YYYY-MM-DD'));
+            if (filters.date) {
+                params.append('start_date', filters.date.format('YYYY-MM-DD'));
+                params.append('end_date', filters.date.format('YYYY-MM-DD'));
             }
 
             const response = await axios.get(`${API}/admin/reports/export`, {
@@ -83,8 +82,8 @@ export default function Reports() {
 
             <Card style={{ marginTop: 24 }}>
                 <Form layout="inline" onValuesChange={(_, allValues) => setFilters(allValues)}>
-                    <Form.Item name="dateRange" label="Date Range">
-                        <RangePicker />
+                    <Form.Item name="date" label="Date">
+                        <DatePicker format="YYYY-MM-DD" placeholder="Select Date" />
                     </Form.Item>
                     <Form.Item name="status" label="Status" style={{ minWidth: 150 }}>
                         <Select placeholder="All Statuses" allowClear>

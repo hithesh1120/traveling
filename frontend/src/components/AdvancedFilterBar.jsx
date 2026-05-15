@@ -31,10 +31,10 @@ const AdvancedFilterBar = ({ onFilter, statusOptions, initialValues }) => {
 
     const handleFinish = (values) => {
         const filters = { ...values };
-        if (values.dateRange) {
-            filters.date_from = values.dateRange[0].format('YYYY-MM-DD');
-            filters.date_to = values.dateRange[1].format('YYYY-MM-DD');
-            delete filters.dateRange;
+        if (values.date) {
+            filters.date_from = values.date.format('YYYY-MM-DD');
+            filters.date_to = values.date.format('YYYY-MM-DD');
+            delete filters.date;
         }
         onFilter(filters);
     };
@@ -74,10 +74,11 @@ const AdvancedFilterBar = ({ onFilter, statusOptions, initialValues }) => {
                         />
                     </Form.Item>
 
-                    <Form.Item name="dateRange" noStyle>
-                        <RangePicker
+                    <Form.Item name="date" noStyle>
+                        <DatePicker
                             style={{ width: 260, borderRadius: '50px' }}
                             format="YYYY-MM-DD"
+                            placeholder="Select Date"
                         />
                     </Form.Item>
 

@@ -23,7 +23,8 @@ export default function TrackOrders() {
     const [vehicles, setVehicles] = useState([]);
     const [drivers, setDrivers] = useState([]);
     const [shipments, setShipments] = useState([]);
-    const [cargoViewVehicle, setCargoViewVehicle] = useState(null);
+    const [cargoViewTrip, setCargoViewTrip] = useState(null);
+    const [selectedDate, setSelectedDate] = useState(null);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -46,16 +47,33 @@ export default function TrackOrders() {
         fetchData();
     }, [fetchData]);
 
-    const getAssignedDisplayShipments = (vehicleId) => {
-        return shipments.filter(s =>
-            s.assigned_vehicle_id === vehicleId &&
-            ['ASSIGNED', 'PICKED_UP', 'IN_TRANSIT'].includes(s.status)
-        );
-    };
-
     if (loading) {
         return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}><Spin size="large" /></div>;
     }
+
+    const activeShipments = shipments.filter(s => ['ASSIGNED', 'PICKED_UP', 'IN_TRANSIT'].includes(s.status));
+    
+    const filteredShipments = selectedDate 
+        ? activeShipments.filter(s => new Date(s.created_at).toLocaleDateString() === selectedDate.toDate().toLocaleDateString())
+        : activeShipments;
+
+    const grouped = {};
+    filteredShipments.forEach(s => {
+        const vId = s.assigned_vehicle_id || 'unassigned';
+        const dateStr = new Date(s.created_at).toLocaleDateString();
+        const key = `${vId}-${dateStr}`;
+        if (!grouped[key]) {
+            grouped[key] = {
+                id: key,
+                vehicleId: s.assigned_vehicle_id,
+                dateStr: dateStr,
+                shipments: []
+            };
+        }
+        grouped[key].shipments.push(s);
+    });
+
+    const tripGroups = Object.values(grouped).filter(g => g.vehicleId);
 
     return (
         <div>
@@ -63,22 +81,26 @@ export default function TrackOrders() {
                 <Title level={3} style={{ margin: 0 }}>Track Orders</Title>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                     <Text>Select Date:</Text>
-                    <DatePicker style={{ width: 200 }} />
+                    <DatePicker 
+                        style={{ width: 200 }} 
+                        format="YYYY-MM-DD"
+                        onChange={date => setSelectedDate(date)} 
+                        allowClear
+                    />
                 </div>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                {vehicles.map(v => {
-                    const assignedShipments = getAssignedDisplayShipments(v.id);
-                    if (assignedShipments.length === 0) return null; // Only show vehicles with active assignments
+                {tripGroups.map(group => {
+                    const v = vehicles.find(veh => veh.id === group.vehicleId);
+                    if (!v) return null;
 
+                    const assignedShipments = group.shipments;
                     const currentDriver = drivers.find(d => d.id === v.current_driver_id);
-                    // To track the route, we just need the vehicle ID or any one active shipment's route for now.
-                    // Based on existing logic it tracks by shipment ID. Using the first shipment as proxy.
                     const leadShipmentId = assignedShipments[0]?.id;
 
                     return (
-                        <div key={v.id} style={{
+                        <div key={group.id} style={{
                             background: '#fff',
                             borderRadius: 8,
                             overflow: 'hidden',
@@ -99,6 +121,9 @@ export default function TrackOrders() {
                                         <div style={{ fontWeight: 600, fontSize: 16 }}>{v.name}</div>
                                         <div style={{ fontSize: 12, opacity: 0.9 }}>{v.plate_number}</div>
                                     </div>
+                                    <Tag color="orange" style={{ marginLeft: 8, border: 'none', background: 'rgba(255,255,255,0.3)', color: '#000' }}>
+                                        {group.dateStr}
+                                    </Tag>
                                 </div>
 
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -116,7 +141,7 @@ export default function TrackOrders() {
                                     <Button
                                         size="small"
                                         icon={<EyeOutlined />}
-                                        onClick={() => setCargoViewVehicle(v)}
+                                        onClick={() => setCargoViewTrip({ vehicle: v, shipments: assignedShipments })}
                                         style={{ borderRadius: 4 }}
                                     >
                                         Trip 1 3D
@@ -169,37 +194,38 @@ export default function TrackOrders() {
                     );
                 })}
 
-                {vehicles.filter(v => getAssignedDisplayShipments(v.id).length > 0).length === 0 && (
+                {tripGroups.length === 0 && (
                     <div style={{ textAlign: 'center', padding: 48, background: '#fff', borderRadius: 8 }}>
-                        <Text type="secondary">No active shipments are currently assigned to vehicles.</Text>
+                        <Text type="secondary">No active shipments match the current filters.</Text>
                     </div>
                 )}
             </div>
 
             {/* 3D Cargo View Modal */}
             <Modal
-                open={!!cargoViewVehicle} 
-                onCancel={() => setCargoViewVehicle(null)} 
+                open={!!cargoViewTrip} 
+                onCancel={() => setCargoViewTrip(null)} 
                 footer={null}
                 closable={false}
                 width={800} 
                 centered 
                 bodyStyle={{ padding: 0, overflow: 'hidden', background: '#0a0a0a' }} 
                 destroyOnClose>
-                {cargoViewVehicle && (() => {
-                    const cargoItems = getAssignedDisplayShipments(cargoViewVehicle.id).flatMap(s => s.items || []);
+                {cargoViewTrip && (() => {
+                    const cargoItems = cargoViewTrip.shipments.flatMap(s => s.items || []);
+                    const vehicle = cargoViewTrip.vehicle;
                     return (
                         <div style={{ height: 500, width: '100%', position: 'relative' }}>
                             <TruckCargoVisualizer
-                                weightUsed={cargoViewVehicle.current_weight_used} weightCapacity={cargoViewVehicle.weight_capacity}
-                                volumeUsed={cargoViewVehicle.current_volume_used} volumeCapacity={cargoViewVehicle.volume_capacity}
-                                vehicleType={cargoViewVehicle.vehicle_type} vehicleName={cargoViewVehicle.name}
-                                plateNumber={cargoViewVehicle.plate_number} height="100%"
+                                weightUsed={vehicle.current_weight_used} weightCapacity={vehicle.weight_capacity}
+                                volumeUsed={vehicle.current_volume_used} volumeCapacity={vehicle.volume_capacity}
+                                vehicleType={vehicle.vehicle_type} vehicleName={vehicle.name}
+                                plateNumber={vehicle.plate_number} height="100%"
                                 items={cargoItems}
                                 style={{ width: '100%', height: '100%' }} showLabels={false}
                             />
                         <button
-                            onClick={() => setCargoViewVehicle(null)}
+                            onClick={() => setCargoViewTrip(null)}
                             style={{
                                 position: 'absolute', top: 16, right: 60,
                                 background: 'transparent',
